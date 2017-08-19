@@ -3,8 +3,6 @@ from discord.ext import commands
 from random import shuffle, choice
 
 import asyncio
-import math
-import time
 
 import DiscoUtils
 
@@ -28,6 +26,7 @@ YT_OPTS = {
     'default_search': 'auto'
 }
 
+
 class Song:
     def __init__(self, player, message, **kwargs):
         self.__dict__ = kwargs
@@ -41,11 +40,16 @@ class Song:
         self.paused = False
 
     def __str__(self):
-        return '{} uploaded by {} and requested by {} [length: {}m {}s]'.format(self.title, self.by, self.requester.display_name, self.duration[0], self.duration[1])
+        return '{} uploaded by {} and requested by {} [length: {}m {}s]'\
+            .format(self.title, self.by,
+                    self.requester.display_name,
+                    self.duration[0], self.duration[1])
         # return self.title
 
     def __repr__(self):
-        return '{} uploaded by {} and requested by {}'.format(self.title, self.by, self.requester.display_name)
+        return '{} uploaded by {} and requested by {}'\
+            .format(self.title, self.by, self.requester.display_name)
+
 
 class Playlist:
     def __init__(self):
@@ -61,7 +65,8 @@ class Playlist:
         return msg
 
     def enqueue(self, song, request):
-        s = Song(song, request, title=song.title, by=song.uploader, duration=divmod(song.duration, 60))
+        s = Song(song, request, title=song.title,
+                 by=song.uploader, duration=divmod(song.duration, 60))
         self.songs += 1
         if self.current is None:
             self.current = s
@@ -102,6 +107,7 @@ class Playlist:
             self.current = hold
         self.last = None
 
+
 class Music:
     def __init__(self, bot):
         self.bot = bot
@@ -112,24 +118,6 @@ class Music:
         self.skips = set()
         self.seconds = 0
         self.ready = False
-        # self.lock = False
-        # self.check_next_task = self.bot.loop.create_task(self.__do_check_next())
-    #
-    # async def __do_check_next(self):
-    #     while True:
-    #         print('Begin loop')
-    #         if self.player is not None:
-    #             print('Player is not None')
-    #             print('Player is playing: {}'.format(self.player.is_playing()))
-    #             if self.player.is_done() and self.playlist.songs > 1 and not self.lock:
-    #                 print('Player is Done AND more songs left AND not locked')
-    #                 await self._play_next_song()
-    #             if self.player.is_done() and self.playlist.songs <= 1:
-    #                 print('Player is Done AND no songs')
-    #                 self.playlist.dequeue()
-    #                 await self._clean()
-    #                 await self.bot.change_presence(game=discord.Game(name='Ascension'))
-    #         await asyncio.sleep(1)
 
     def is_ready(self):
         return not self.player.is_done()
@@ -139,18 +127,25 @@ class Music:
                       help='Display music commands')
     async def music(self, ctx):
         help = '@{} ```'.format(ctx.message.author.mention)
-        help += '{}play, p, queue [link/song]:\n\tPlay/Queue a song.'.format(DiscoUtils.PREFIX)
-        help += '{}volume, vol, v (value):\n\tChange the volume.'.format(DiscoUtils.PREFIX)
-        help += '{}skip, s, next:\n\tVote to skip the current song.'.format(DiscoUtils.PREFIX)
-        help += '{}pause, p:\n\tPause/Resume the current song.'.format(DiscoUtils.PREFIX)
-        help += '{}stop, s, destroy, leave:\n\tStop the music stream.'.format(DiscoUtils.PREFIX)
-        help += '{}list, li, l, songs (amount):\n\tList the songs in queue.'.format(DiscoUtils.PREFIX)
-        help += '{}current, cur, c, song:\n\tDisplay current song info.'.format(DiscoUtils.PREFIX)
+        help += '{}play, queue [link/song]:\n\tPlay/Queue a song.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}volume, vol (value):\n\tChange the volume.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}skip, next:\n\tVote to skip the current song.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}pause:\n\tPause/Resume the current song.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}stop, leave:\n\tStop the music stream.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}list, songs (amount):\n\tList the songs in queue.\n'\
+            .format(DiscoUtils.PREFIX)
+        help += '{}current, song:\n\tDisplay current song info.\n'\
+            .format(DiscoUtils.PREFIX)
         help += '```'
         await self.bot.say(help)
 
 
-    @commands.command(name='play', aliases=['p', 'queue'], pass_context=True,
+    @commands.command(name='play', aliases=['queue'], pass_context=True,
                       no_pm=True, help='Play or Queue up a song')
     async def play(self, ctx, *, song: str):
         """ Queues up the given song or link
@@ -174,7 +169,7 @@ class Music:
             if check:
                 await self._play_next_song()
 
-    @commands.command(name='volume', aliases=['vol', 'v'],
+    @commands.command(name='volume', aliases=['vol'],
                       no_pm=True, help='Change the volume')
     async def vol(self, val: int):
         """ Changes the volume
@@ -193,8 +188,8 @@ class Music:
         self.player.volume = self.volume / 100
         await self.bot.say('Setting volume to {}%.'.format(self.volume))
 
-    @commands.command(name='skip', aliases=['s', 'next'], pass_context=True,
-                      no_pm=True, help='Vote to skip the curent song')
+    @commands.command(name='skip', aliases=['next'], pass_context=True,
+                      no_pm=True, help='Vote to skip the current song')
     async def skip(self, ctx):
         """ Skips the current song by vote
         -Skips cannot occur if there is no voice channel, or if there is no player.
@@ -219,7 +214,7 @@ class Music:
             await self.bot.say('**{}** has already voted. At {}/{} votes.'.format(author.display_name, len(self.skips), majority))
             await self._check_skips(majority)
 
-    @commands.command(name='pause', aliases=['p'], pass_context=True,
+    @commands.command(name='pause', aliases=[], pass_context=True,
                       no_pm=True, help='Pause or resume the song')
     async def pause(self, ctx):
         """ Pauses or resumes the song
@@ -239,7 +234,7 @@ class Music:
             self.playlist.current.paused = False
             await self.bot.say('**{}** resumed the song.'.format(ctx.message.author.display_name))
 
-    @commands.command(name='stop', aliases=['s', 'destroy', 'leave'], pass_context=True,
+    @commands.command(name='stop', aliases=['leave'], pass_context=True,
                       no_pm=True, help='Stop the bot from playing music')
     async def stop(self, ctx):
         """ Stops the music stream
@@ -261,7 +256,7 @@ class Music:
         self.seconds = 0
         self.playlist.clean()
 
-    @commands.command(name='list', aliases=['li', 'l', 'songs'], pass_context=True,
+    @commands.command(name='list', aliases=['songs'], pass_context=True,
                       no_pm=True, help='List songs in queue')
     async def list(self, ctx, amount: int = -1):
         """ Lists the songs in queue
@@ -286,7 +281,7 @@ class Music:
             msg += '```'
             await self.bot.say(msg + '```There are {} song(s) in queue.```'.format(self.playlist.songs))
 
-    @commands.command(name='current', aliases=['cur', 'c', 'song'], pass_context=True,
+    @commands.command(name='current', aliases=['song'], pass_context=True,
                       no_pm=True, help='List current song info')
     async def get_current(self, ctx):
         """ Gets info on the current song (Similar to the Now Playing say)
@@ -384,7 +379,10 @@ class Music:
             self.voice = None
 
     async def _play_next_song(self):
-        # By calling this method, you are saying that it is OK to force stop whatever song is currently playing (if there is any) and play the next song
+        # By calling this method,
+        # you are saying that it is OK to force stop
+        # whatever song is currently playing (if there is any)
+        # and play the next song
         # self.lock = True
         if not self.ready:
             return
@@ -413,6 +411,8 @@ class Music:
         self.playlist.dequeue()
         if self.playlist.songs > 0:
             await self._play_next_song()
+        else:
+            await self.bot.change_presence(game=discord.Game(name='Ascension'))
 
     async def _check_skips(self, majority):
         if len(self.skips) >= majority:
@@ -436,46 +436,3 @@ class Music:
             return False
 
         return True
-
-# class Music:
-#     def __init__(self, bot):
-#         self.bot = bot
-#         self.next = asyncio.Event()
-#         self.queue = asyncio.Queue()
-#         self.volume = 30
-#         self.current = None
-#         self.skips = set()
-#         self.voice = None
-#         self.player = self.bot.loop.create_task(self.__do_play_music())
-#
-#     def __str__(self):
-#         return 'Bot: {}\nNext: {}\nQueue: {}\nVolume: {}\nCurrent: {}\nSkips: {}\nVoice: {}\nPlayer: {}\n'.format(self.bot, self.next, self.queue, self.volume, self.current, self.skips, self.voice, self.player)
-#
-#
-#         else:
-#             player.volume = self.volume / 100
-#             ssong = Song(ctx.message, player)
-#             await self.bot.say('Enqueued ' + str(ssong))
-#             await self.queue.put(ssong)
-#             self.player = player
-#
-#     @commands.command(name='volume', no_pm=True)
-#     async def set_volume(self, vol: int):
-#         self.volume = vol
-#         if self.player:
-#             self.player.volume = vol / 100
-#             await self.bot.say('Set volume to {:.0%}'.format(self.player.volume))
-#
-#     @commands.command(name='skip')
-#     async def force_skip(self):
-#         self.player.stop()
-#         await self.bot.say('Skipping {}'.format(str(self.current)))
-#
-#     @commands.command()
-#     async def debug(self):
-#         await self.bot.say('Current State:\n{}'.format(str(self)))
-#         say = 'Queue Info:\n Length: {}\n'.format(self.queue.maxsize)
-#         await self.bot.say(say)
-#
-#
-#
