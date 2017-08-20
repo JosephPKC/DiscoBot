@@ -1,11 +1,9 @@
 import sys
 import concurrent.futures._base
-
 import DiscoUtils
 from cogs import DiscoMusic
 from cogs import DiscoGeneral
 from cogs import DiscoLoL
-
 try:
     import discord
     from discord.ext import commands
@@ -14,36 +12,41 @@ except ImportError:
           "Try pip install discord.py[voice]\n")
     sys.exit(1)
 
+__author__ = 'JosephPKC'
+__version__ = '0.1'
 
+# Read api keys and tokens
+with open('config.txt', 'r') as file:
+    token = file.readline().rstrip('\n')
+    riot_key = file.readline().rstrip('\n')
+
+# Create the bot
 bot = commands.Bot(command_prefix=DiscoUtils.PREFIX, description='Shurima')
-
+cogs = [
+    DiscoMusic.Music(bot),
+    DiscoGeneral.General(bot),
+    DiscoLoL.LoL(bot, riot_key)
+]
 @bot.event
 async def on_ready():
     print('Logged in as: {0}, {1}\n-----'.format(bot.user.name, bot.user.id))
     await bot.change_presence(game=discord.Game(name='Ascension'))
 
-with open('config.txt', 'r') as file:
-    token = file.readline().rstrip('\n')
-    riot_key = file.readline().rstrip('\n')
-    # print(token + ',' + riot_key)
-    if len(sys.argv) == 2:
-        bot.command_prefix = sys.argv[1]
-        DiscoUtils.PREFIX = sys.argv[1]
-    try:
-        cogs = [
-            DiscoMusic.Music(bot),
-            DiscoGeneral.General(bot),
-            DiscoLoL.LoL(bot, riot_key)
-        ]
-        for c in cogs:
-            bot.add_cog(c)
-        bot.run(token)
-    except concurrent.futures._base.CancelledError:
-        print('Cancelled process')
-    except Exception as e:
-        print("Could not initialize bot.\n {}: {}\n".format(type(e).__name__, e))
-    finally:
-        bot.close()
+@bot.command(name='toggle')
+async def toggle():
+    DiscoUtils.DEBUG = not DiscoUtils.DEBUG
+    DiscoUtils.VERBOSE = not DiscoUtils.VERBOSE
+
+try:
+    for c in cogs:
+        bot.add_cog(c)
+    bot.run(token)
+except concurrent.futures._base.CancelledError:
+    print('Cancelled process')
+except Exception as e:
+    print("Could not initialize bot.\n {}: {}\n".format(type(e).__name__, e))
+finally:
+    bot.close()
 
 
 """TODO List

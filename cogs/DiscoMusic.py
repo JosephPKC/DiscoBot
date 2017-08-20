@@ -1,9 +1,6 @@
 import discord
 from discord.ext import commands
-from random import shuffle, choice
-
 import asyncio
-
 import DiscoUtils
 
 try:
@@ -26,7 +23,7 @@ YT_OPTS = {
     'default_search': 'auto'
 }
 
-
+# Song data structure
 class Song:
     def __init__(self, player, message, **kwargs):
         self.__dict__ = kwargs
@@ -44,13 +41,12 @@ class Song:
             .format(self.title, self.by,
                     self.requester.display_name,
                     self.duration[0], self.duration[1])
-        # return self.title
 
     def __repr__(self):
         return '{} uploaded by {} and requested by {}'\
             .format(self.title, self.by, self.requester.display_name)
 
-
+# Playlist (Linked List of Songs) data structure
 class Playlist:
     def __init__(self):
         self.current = None
@@ -107,7 +103,7 @@ class Playlist:
             self.current = hold
         self.last = None
 
-
+# Music cog
 class Music:
     def __init__(self, bot):
         self.bot = bot
@@ -123,28 +119,6 @@ class Music:
         return not self.player.is_done()
 
     # Commands
-    @commands.command(name='music', pass_context=True,
-                      help='Display music commands')
-    async def music(self, ctx):
-        help = '@{} ```'.format(ctx.message.author.mention)
-        help += '{}play, queue [link/song]:\n\tPlay/Queue a song.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}volume, vol (value):\n\tChange the volume.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}skip, next:\n\tVote to skip the current song.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}pause:\n\tPause/Resume the current song.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}stop, leave:\n\tStop the music stream.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}list, songs (amount):\n\tList the songs in queue.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '{}current, song:\n\tDisplay current song info.\n'\
-            .format(DiscoUtils.PREFIX)
-        help += '```'
-        await self.bot.say(help)
-
-
     @commands.command(name='play', aliases=['queue'], pass_context=True,
                       no_pm=True, help='Play or Queue up a song')
     async def play(self, ctx, *, song: str):
@@ -330,31 +304,6 @@ class Music:
         msg += '```'
         await self.bot.say(msg)
 
-    @debug.command()
-    async def prep(self):
-        msg = '```'
-        prep = self.playlist.display()
-        if len(prep) == 0:
-            msg += 'No songs queued.'
-
-        for p in prep:
-            msg += p + '\n'
-        msg += '```'
-        await self.bot.say(msg)
-
-    @debug.command()
-    async def destroy(self):
-        try:
-            await self._leave()
-            self.skips.clear()
-            self.seconds = 0
-            # self.check_next_task.cancel()
-            self.playlist.clean()
-        except:
-            pass
-        finally:
-            await self.bot.say('bye bye.')
-
     # Helper methods
     async def _join(self, channel):
         try:
@@ -389,8 +338,6 @@ class Music:
 
         if self.player:
             self.player.stop()
-        # if not from_empty:
-        #     self.playlist.dequeue()
 
         self.skips.clear()
         self.player = self.playlist.current.player
@@ -399,7 +346,6 @@ class Music:
         self.player.start()
         self.seconds = self.player.duration
         await self.bot.change_presence(game=discord.Game(name=self.player.title))
-        # self.lock = False
         await self._loop_play_song()
 
     async def _loop_play_song(self):

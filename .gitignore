@@ -92,3 +92,7 @@ ENV/
 
 # Pycharm stuff
 .idea/
+
+# Project-Specific
+data/
+config.txt

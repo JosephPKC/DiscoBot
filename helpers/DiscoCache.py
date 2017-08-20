@@ -1,0 +1,1 @@
+# Cache manager that caches data into memory and retrieves if found
