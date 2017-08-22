@@ -37,6 +37,6 @@ def scale_image(path, new_path, height, width):
             cover.save(new_path, image.format)
 
 def load_json(path):
-    with open(path) as f:
+    with open(path, 'r', encoding='utf-8') as f:
         j_file = json.loads(f.read())
     return j_file

@@ -25,7 +25,7 @@ bot = commands.Bot(command_prefix=DiscoUtils.PREFIX, description='Shurima')
 cogs = [
     DiscoMusic.Music(bot),
     DiscoGeneral.General(bot),
-    DiscoLoL.LoL(bot, riot_key)
+    DiscoLoL.LoL(bot)
 ]
 @bot.event
 async def on_ready():

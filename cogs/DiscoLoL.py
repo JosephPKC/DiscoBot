@@ -1,8 +1,10 @@
 import re
 import requests
 import json
+import sys
 
 import riotwatcher
+import py_gg
 from discord.ext import commands
 
 import DiscoUtils
@@ -10,13 +12,16 @@ from helpers import DiscoFile
 
 """ LoL commands
 Game - show the current game info for a player in a region
-Champion - show champion statistics and info
-Item - show item statistics and info
 Best - show the top champions in each role
-Stats - Show highest picked, highest banned, highest winrate, etc 
 Build - Show best builds for champion in role
 Counters - Show best counters for champion in role
 Other Sites that have APIs
+
+In Best, add support for desc (worst), 
+and ability to choose what it sorts by winrate, playrate, banrate, etc
+Best - Using champion.gg API, get the top X champions in role R whose Ranking Score is the top X
+Worst - Same as Best, except get the bottom X champions
+Matchup - Using champion.gg API, compare two champions c1 and c2, and compare their ranks, and their stats (from matchups)
 
 """
 
@@ -25,13 +30,14 @@ Other Sites that have APIs
 #TODO: champion stats needs access to another API to get champion play stats
 #TODO: Builds command to show the top builds needs access to another API maybe champion.gg?
 #TODO: Need some kind of caching to cache the messages, so that it doesn't keep recomputing them when it was done recently (Store the type, data, and timestamp) - One for data (heavy) for displaying (like messages, etc), and one for db calls (lite) for internal use
-#TODO: Move the downloading to a donwload manager, that simply downloads the given url, and saves it as some file. (It will place requests into a queue, and it will in a loop, download files one by one)
 #TODO: For all: Move all discord.py and other non-std stuff into a try block (more pythony that way)
 #ALL FILES should be in a folder with the version number
-#MAYBE: Instead of downloading images and uploading them to discord, maybe just post the direct link?
-#   Discord's embedded imaging will automatically show the image anyways. This saves us processing power and bandwidth
+#NOTE: champion.gg api has a python wrapper called py_gg
 
-#NOTE: champion.gg api has a python warapper called py_gg
+with open('config.txt', 'r') as file:
+    file.readline()
+    riot_key = file.readline().rstrip('\n')
+    py_gg.init(file.readline().rstrip('\n'))
 
 class LoL:
     DEFAULT_REGION = 'na1'
@@ -157,7 +163,7 @@ class LoL:
         'master yi': 'MasterYi',
         'masteryi': 'MasterYi',
         'yi': 'MasterYi',
-        'miss fortune': 'MissFortune',
+		'missfortune': 'MissFortune',
         'mf': 'MissFortune',
         'wukong': 'MonkeyKing',
         'mordekaiser': 'Mordekaiser',
@@ -245,6 +251,146 @@ class LoL:
         'ziggs': 'Ziggs',
         'zilean': 'Zilean',
         'zyra': 'Zyra'
+    }
+    CHAMPION_IDS = {
+         'Aatrox': 266,
+         'Ahri': 103,
+         'Akali': 84,
+         'Alistar': 12,
+         'Amumu': 32,
+         'Anivia': 34,
+         'Annie': 1,
+         'Ashe': 22,
+         'AurelionSol': 136,
+         'Azir': 268,
+         'Bard': 432,
+         'Blitzcrank': 53,
+         'Brand': 63,
+         'Braum': 201,
+         'Caitlyn': 51,
+         'Camille': 164,
+         'Cassiopeia': 69,
+         'Chogath': 31,
+         'Corki': 42,
+         'Darius': 122,
+         'Diana': 131,
+         'Draven': 119,
+         'DrMundo': 36,
+         'Ekko': 245,
+         'Elise': 60,
+         'Evelynn': 28,
+         'Ezreal': 81,
+         'FiddleSticks': 9,
+         'Fiora': 114,
+         'Fizz': 105,
+         'Galio': 3,
+         'Gangplank': 41,
+         'Garen': 86,
+         'Gnar': 150,
+         'Gragas': 79,
+         'Graves': 104,
+         'Hecarim': 120,
+         'Heimerdinger': 74,
+         'Illaoi': 420,
+         'Irelia': 39,
+         'Ivern': 427,
+         'Janna': 40,
+         'JarvanIV': 59,
+         'Jax': 24,
+         'Jayce': 126,
+         'Jhin': 202,
+         'Jinx': 222,
+         'Kalista': 429,
+         'Karma': 43,
+         'Karthus': 30,
+         'Kassadin': 38,
+         'Katarina': 55,
+         'Kayle': 10,
+         'Kayn': 141,
+         'Kennen': 85,
+         'Khazix': 121,
+         'Kindred': 203,
+         'Kled': 240,
+         'KogMaw': 96,
+         'Leblanc': 7,
+         'LeeSin': 64,
+         'Leona': 89,
+         'Lissandra': 127,
+         'Lucian': 236,
+         'Lulu': 117,
+         'Lux': 99,
+         'Malphite': 54,
+         'Malzahar': 90,
+         'Maokai': 57,
+         'MasterYi': 11,
+         'MissFortune': 21,
+         'MonkeyKing': 62,
+         'Mordekaiser': 82,
+         'Morgana': 25,
+         'Nami': 267,
+         'Nasus': 75,
+         'Nautilus': 111,
+         'Nidalee': 76,
+         'Nocturne': 56,
+         'Nunu': 20,
+         'Olaf': 2,
+         'Orianna': 61,
+         'Ornn': 516,
+         'Pantheon': 80,
+         'Poppy': 78,
+         'Quinn': 133,
+         'Rakan': 497,
+         'Rammus': 33,
+         'RekSai': 421,
+         'Renekton': 58,
+         'Rengar': 107,
+         'Riven': 92,
+         'Rumble': 68,
+         'Ryze': 13,
+         'Sejuani': 113,
+         'Shaco': 35,
+         'Shen': 98,
+         'Shyvana': 102,
+         'Singed': 27,
+         'Sion': 14,
+         'Sivir': 15,
+         'Skarner': 72,
+         'Sona': 37,
+         'Soraka': 16,
+         'Swain': 50,
+         'Syndra': 134,
+         'TahmKench': 223,
+         'Taliyah': 163,
+         'Talon': 91,
+         'Taric': 44,
+         'Teemo': 17,
+         'Thresh': 412,
+         'Tristana': 18,
+         'Trundle': 48,
+         'Tryndamere': 23,
+         'TwistedFate': 4,
+         'Twitch': 29,
+         'Udyr': 77,
+         'Urgot': 6,
+         'Varus':110 ,
+         'Vayne': 67,
+         'Veigar': 45,
+         'Velkoz': 161,
+         'Vi': 254,
+         'Viktor': 112,
+         'Vladimir': 8,
+         'Volibear': 106,
+         'Warwick': 19,
+         'Xayah': 498,
+         'Xerath': 101,
+         'XinZhao': 5,
+         'Yasuo': 157,
+         'Yorick': 83,
+         'Zac': 154,
+         'Zed': 238,
+         'Ziggs': 115,
+         'Zilean': 26,
+         'Zyra': 143
     }
     ITEMS = {
         'doran\'sblade': '1055',
@@ -622,16 +768,40 @@ class LoL:
         'Item Icons': 'data\\{}\\lol_item_icons\\'.format(VERSION)
     }
     OPTS = {
-        'Champions': ['l', 't', 's', 'sk', 'st', 'i', 'all']
+        'Champions': ['l', 't', 's', 'sk', 'st', 'i', 'all'],
+        'Stats': ['e', 'p', 'm', 'r', 'a']
     }
     VARS = {
         'bonusattackdamage': 'Bonus AD',
         'spelldamage': 'AP',
         'attackdamage': 'AD'
     }
-    def __init__(self, bot, riot):
+    ELOS = {
+        'bronze' : 'BRONZE',
+        'silver': 'SILVER',
+        'gold': 'GOLD',
+        'platinum': 'PLATINUM',
+        'plat': 'PLATINUM',
+        'diamond': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+        'master': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+        'challenger': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+        'top': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+
+    }
+    ROLES = {
+        'top': 'TOP',
+        'jungle': 'JUNGLE',
+        'jg': 'JUNGLE',
+        'middle': 'MIDDLE',
+        'mid': 'MIDDLE',
+        'carry': 'DUO_CARRY',
+        'adc': 'DUO_CARRY',
+        'support': 'DUO_SUPPORT',
+        'sup': 'DUO_SUPPORT'
+    }
+    def __init__(self, bot):
         self.bot = bot
-        self.watcher = riotwatcher.RiotWatcher(riot)
+        self.watcher = riotwatcher.RiotWatcher(riot_key)
         self.items = None
 
     @commands.command(name='summoner', aliases=[], pass_context=True,
@@ -732,15 +902,15 @@ class LoL:
     async def champion(self, ctx, *, input: str = None):
         # Parse input string
         name, opts = self.__parse_champion(input)
-        name = name.replace(' ', '').lower()
+        
         if DiscoUtils.DEBUG:
             print('Input Parsed Name: ', name)
             print('Input Parsed Options: ', opts)
         # Check if the name is in Champions List
-        if name not in self.CHAMPIONS:
+        if name.replace(' ', '').lower() not in self.CHAMPIONS:
             await self.bot.say('Champion **{}** does not exist.'.format(name))
             return
-
+        name = name.replace(' ', '').lower()
         # Display Champion info
         try:
             # Get the Name found in DDragon
@@ -1038,57 +1208,327 @@ class LoL:
                 await self.bot.say('Unknown error occurred. Status code {}.'
                                    .format(err.response.status_code))
 
+    @commands.command(name='stats',
+                      help='Display champion statistics')
+    async def stats(self, *, input: str = None):
+        # Parse input to be champ name -e=elo -p=position -r -m(or None) DEFAULT: Elo is Plat+, Role is All
+        name, elo, role, opts = self.__parse_champion_stat(input)
+        print(name, elo, role, opts)
+
+        # Check if champ exists
+        if name.replace(' ', '').lower() not in self.CHAMPIONS:
+            await self.bot.say('Champion **{}** does not exist.'.format(name))
+            return
+        name = name.replace(' ', '').lower()
+        # name = self.CHAMPIONS[name]
+
+        if elo.replace(' ', '').lower() not in self.ELOS:
+            await self.bot.say('Rank **{}** does not exist.'.format(elo))
+            return
+        elo = elo.replace(' ', '').lower()
+        elo = self.ELOS[elo]
+
+        if not role == 'all' and role.replace(' ', '').lower() not in self.ROLES:
+            await self.bot.say('Position **{}** does not exist.'.format(role))
+            return
+        if not role == 'all':
+            role = role.replace(' ', '').lower()
+            role = self.ROLES[role]
+
+        champData = 'kda,damage,averageGames,totalHeal,killingSpree,minions,gold,positions,normalized,groupedWins,trinkets,runes,firstitems,summoners,skills,finalitems,masteries,maxMins,matchups'
+        options = {'?elo': elo, 'champData': champData, 'limit': 500}
+        # Use py_gg to get champion stats for specific champion (champions.specific_role or specific)
+        id = int(self.__get_json(self.CHAMPIONS[name], self.PATHS['Champions'], self.URLS['Champions'])['data'][self.CHAMPIONS[name]]['key'])
+
+        if role == 'all':
+            # Get general champion stats
+            stats = py_gg.champions.specific(id, options=options)
+        else:
+            stats = py_gg.champions.specific_role(id, role, options=options)
+        if DiscoUtils.DEBUG and DiscoUtils.VERBOSE:
+            print('Stats; ', stats)
+        # Interpret dict data stats
+        # for i, s in enumerate(stats):
+            # print(i, '\n\n', s, '\n\n\n')
+        caches = []
+        if stats is None or len(stats) == 0:
+            await self.bot.say('Not enough data found for **{}** in **{}** for rank **{}**'.format(self.CHAMPIONS[name], role, elo))
+            return
+
+        if type(stats) is not list:
+            stats = [stats]
+
+        for s in stats:
+            # Get basic info
+            patch = s['patch']
+            rankings = {
+                'deaths': [s['positions']['deaths'], s['positions']['previousDeaths']],
+                'winrates': [s['positions']['winRates'], s['positions']['previousWinRates']],
+                'minions': [s['positions']['minionsKilled'], s['positions']['previousMinionsKilled']],
+                'banrates': [s['positions']['banRates'], s['positions']['previousBanRates']],
+                'assists': [s['positions']['assists'], s['positions']['previousAssists']],
+                'kills': [s['positions']['kills'], s['positions']['previousKills']],
+                'playrates': [s['positions']['playRates'], s['positions']['previousPlayRates']],
+                'damage': [s['positions']['damageDealt'], s['positions']['previousDamageDealt']],
+                'gold': [s['positions']['goldEarned'], s['positions']['previousGoldEarned']],
+                'score': [s['positions']['overallPerformanceScore'], s['positions']['previousOverallPerformanceScore']],
+                'heal': [s['positions']['totalHeal'], s['positions']['previousTotalHeal']],
+                'killingspree': [s['positions']['killingSprees'], s['positions']['previousKillingSprees']],
+                'damagetaken': [s['positions']['totalDamageTaken'], s['positions']['previousTotalDamageTakenPosition']]
+            }
+            winrate = s['winRate']
+            damage = {
+                'true': [s['damageComposition']['percentTrue'], s['damageComposition']['totalTrue']],
+                'magical': [s['damageComposition']['percentMagical'], s['damageComposition']['totalMagical']],
+                'physical': [s['damageComposition']['percentPhysical'], s['damageComposition']['totalPhysical']],
+                'total': s['damageComposition']['total']
+            }
+            kills = s['kills']
+            damagetaken = s['totalDamageTaken']
+            neutralinteam = s['neutralMinionsKilledTeamJungle']
+            assists = s['assists']
+            playrate = s['playRate']
+            games = s['gamesPlayed']
+            roleplay = s['percentRolePlayed']
+            neutralinenemy = s['neutralMinionsKilledEnemyJungle']
+            deaths = s['deaths']
+            banrate = s['banRate']
+            minions = s['minionsKilled']
+            heal = s['totalHeal']
+            maxmins = {
+                'deaths': [s['maxMins']['minDeaths'], s['maxMins']['maxDeaths']],
+                'winrates': [s['maxMins']['minWinRate'], s['maxMins']['maxWinRate']],
+                'minions': [s['maxMins']['minMinionsKilled'], s['maxMins']['maxMinionsKilled']],
+                'banrates': [s['maxMins']['minBanRate'], s['maxMins']['maxBanRate']],
+                'assists': [s['maxMins']['minAssists'], s['maxMins']['maxAssists']],
+                'kills': [s['maxMins']['minKills'], s['maxMins']['maxKills']],
+                'playrates': [s['maxMins']['minPlayRate'], s['maxMins']['maxPlayRate']],
+                'damage': [s['maxMins']['minTotalDamageDealtToChampions'], s['maxMins']['maxTotalDamageDealtToChampions']],
+                'gold': [s['maxMins']['minGoldEarned'], s['maxMins']['maxGoldEarned']],
+                'heal': [s['maxMins']['minHeal'], s['maxMins']['maxHeal']],
+                'killingspree': [s['maxMins']['minKillingSprees'], s['maxMins']['maxKillingSprees']],
+                'damagetaken': [s['maxMins']['minTotalDamageTaken'], s['maxMins']['maxTotalDamageTaken']],
+                'enemyjungle': [s['maxMins']['minNeutralMinionsKilledEnemyJungle'], s['maxMins']['maxNeutralMinionsKilledEnemyJungle']],
+                'teamjungle': [s['maxMins']['minNeutralMinionsKilledTeamJungle'], s['maxMins']['maxNeutralMinionsKilledTeamJungle']]
+            }
+            if DiscoUtils.DEBUG:
+                print('Maxmins: ', maxmins)
+
+            # Compute the message
+            # Basic info & s message
+            title = self.CHAMPIONS[name] + '\n'
+            title += 'Role: ' + s['role'] + '\n'
+            title += 'Ranks: ' + elo + '\n'
+            title += 'Patch: ' + patch + '\n'
+            if DiscoUtils.DEBUG:
+                print('Title: ', title)
+
+            # Stats: ranked, in-game, and damage composition
+            nstats = 'Averaged from {} games played.\n'.format(games)
+            nstats += '\tWin Rate: {0:.2f}%\n'.format(winrate * 100)
+            nstats += '\tPlay Rate: {0:.2f}%\n'.format(playrate * 100)
+            nstats += '\tBan Rate: {0:.2f}%\n'.format(banrate * 100)
+            nstats += '\tRole Rate: {0:.2f}%\n'.format(roleplay * 100)
+            nstats += '\n\tKills: {0:.2f}\n'.format(kills)
+            nstats += '\tDeaths: {0:.2f}\n'.format(deaths)
+            nstats += '\tAssists: {0:.2f}\n'.format(assists)
+            nstats += '\tMinions: {0:.2f}\n'.format(minions)
+            nstats += '\tMonsters in Team Jungle: {0:.2f}\n'.format(neutralinteam)
+            nstats += '\tMonsters in Enemy Jungle: {0:.2f}\n'.format(neutralinenemy)
+            nstats += '\tTotal Healing: {0:.2f}\n'.format(heal)
+            nstats += '\tTotal Damage Taken: {0:.2f}\n'.format(damagetaken)
+            nstats += '\tTotal Damage Dealt: {0:.2f}\n'.format(damage['total'])
+            nstats += '\t\tTrue Damage: {:.2f}, {:.2f}% of Total\n'.format(damage['true'][1], damage['true'][0] * 100)
+            nstats += '\t\tPhysical Damage: {:.2f}, {:.2f}% of Total\n'.format(damage['physical'][1], damage['physical'][0] * 100)
+            nstats += '\t\tMagical Damage: {:.2f}, {:.2f}% of Total\n'.format(damage['magical'][1], damage['magical'][0] * 100)
+
+            # Rankings
+            ranking = 'Ranking (compared to other Champions)\n'
+            ranking += '\tOverall Score: ' + self.__get_ranking_string(rankings['score'][0], rankings['score'][1])
+            ranking += '\n\tWin Rate: ' + self.__get_ranking_string(rankings['winrates'][0], rankings['winrates'][1])
+            ranking += '\n\tPlay Rate: ' + self.__get_ranking_string(rankings['playrates'][0], rankings['playrates'][1])
+            ranking += '\n\tBan Rate: ' + self.__get_ranking_string(rankings['banrates'][0], rankings['banrates'][1])
+            ranking += '\n\tKills: ' + self.__get_ranking_string(rankings['kills'][0], rankings['kills'][1])
+            ranking += '\n\tDeaths: ' + self.__get_ranking_string(rankings['deaths'][0], rankings['deaths'][1])
+            ranking += '\n\tAssists: ' + self.__get_ranking_string(rankings['assists'][0], rankings['assists'][1])
+            ranking += '\n\tDamage Dealt: ' + self.__get_ranking_string(rankings['damage'][0], rankings['damage'][1])
+            ranking += '\n\tDamage Taken: ' + self.__get_ranking_string(rankings['damagetaken'][0], rankings['damagetaken'][1])
+            ranking += '\n\tDamage Healed: ' + self.__get_ranking_string(rankings['heal'][0], rankings['heal'][1])
+            ranking += '\n\tKilling Sprees: ' + self.__get_ranking_string(rankings['killingspree'][0], rankings['killingspree'][1])
+            ranking += '\n\tMinions Killed: ' + self.__get_ranking_string(rankings['minions'][0], rankings['minions'][1])
+            ranking += '\n\tGold Earned: ' + self.__get_ranking_string(rankings['gold'][0], rankings['gold'][1])
+
+            # Max Mins
+            maxmin = 'Max/Min Average Scores from Games\n'
+            maxmin += '\tWin Rate: ' + self.__get_maxmin_string(maxmins['winrates'][0], maxmins['winrates'][1], True) + '\n'
+            maxmin += '\tPlay Rate: ' + self.__get_maxmin_string(maxmins['playrates'][0], maxmins['playrates'][1], True) + '\n'
+            maxmin += '\tBan Rate: ' + self.__get_maxmin_string(maxmins['banrates'][0], maxmins['banrates'][1], True) + '\n'
+            maxmin += '\tKills: ' + self.__get_maxmin_string(maxmins['kills'][0], maxmins['kills'][1]) + '\n'
+            maxmin += '\tDeaths: ' + self.__get_maxmin_string(maxmins['deaths'][0], maxmins['deaths'][1]) + '\n'
+            maxmin += '\tAssists: ' + self.__get_maxmin_string(maxmins['assists'][0], maxmins['assists'][1]) + '\n'
+            maxmin += '\tDamage Dealt: ' + self.__get_maxmin_string(maxmins['damage'][0], maxmins['damage'][1]) + '\n'
+            maxmin += '\tDamage Taken: ' + self.__get_maxmin_string(maxmins['damagetaken'][0], maxmins['damagetaken'][1]) + '\n'
+            maxmin += '\tDamage Healed: ' + self.__get_maxmin_string(maxmins['heal'][0], maxmins['heal'][1]) + '\n'
+            maxmin += '\tKilling Sprees: ' + self.__get_maxmin_string(maxmins['killingspree'][0], maxmins['killingspree'][1]) + '\n'
+            maxmin += '\tMinions Killed: ' + self.__get_maxmin_string(maxmins['minions'][0], maxmins['minions'][1]) + '\n'
+            maxmin += '\tMonsters in Team Jungle: ' + self.__get_maxmin_string(maxmins['teamjungle'][0], maxmins['teamjungle'][1]) + '\n'
+            maxmin += '\tMonsters in Enemy Jungle: ' + self.__get_maxmin_string(maxmins['enemyjungle'][0], maxmins['enemyjungle'][1]) + '\n'
+            maxmin += '\tGold Earned: ' + self.__get_maxmin_string(maxmins['gold'][0], maxmins['gold'][1]) + '\n'
+
+            cache = [
+                title,
+                nstats,
+                ranking,
+                maxmin
+            ]
+            caches.append(cache)
+            #TODO: Cache this
+
+        #Display message (only the ones that are enabled)
+        for c in caches:
+            await self.bot.say('From Champion.gg...\n```' + self.CHAMPIONS[name] + '\n' + c[0] + '```')
+            await self.bot.say('```' + c[1] + '```')
+            if opts['r']:
+                await self.bot.say('```' + c[2] + '```')
+            if opts['m']:
+                await self.bot.say('```' + c[3] + '```')
+
+    @commands.command(name='top',
+                      help='Gets the top X champions in a role')
+    async def top(self, num: int = 10, role: str = 'all'):
+        # Call the API. Call champions-all with sort=winrate-desc, limit to role as well
+        if num < 1:
+            await self.bot.say(f'**{num}** is not a valid number. Enter a positive integer.')
+            return
+
+        if not role == 'all' and role.replace(' ', '').lower() not in self.ROLES:
+            await self.bot.say('Role **{}** does not exist.'.format(role))
+            return
+        if not role == 'all':
+            role = self.ROLES[role.replace(' ', '').lower()]
+        options = {
+            '?elo': self.ELOS['top'],
+            'limit': 200,
+            'sort': 'winRate-desc',
+        }
+        champions = py_gg.champions.all(options)
+        if DiscoUtils.DEBUG and DiscoUtils.VERBOSE:
+            print('Champions in order: ', champions)
+
+        if champions is None or len(champions) == 0:
+            await self.bot.say('Could not get data.')
+            return
+
+        if not role == 'all':
+            # Trim the list
+            champions = [c for c in champions if c['_id']['role'] == role]
+            # for c in champions:
+                # print(c['_id'])
+
+        # Get the top num
+        champions = champions[:num]
+
+        # Create a list of names-roles
+        best = list()
+        for i, c in enumerate(champions):
+            id = c['_id']['championId']
+            winrate = c['winRate']
+            playrate = c['playRate']
+            banrate = c['banRate']
+            # Need a mapping of name, id, title
+            name = dict((v, k) for k, v in self.CHAMPION_IDS.items())[id]
+            w = ' ' * (2 - (2 if int(winrate * 100) >= 10 else 1))
+            p = ' ' * (2 - (2 if int(playrate * 100) >= 10 else 1))
+            b = ' ' * (2 - (2 if int(banrate * 100) >= 10 else 1))
+
+            rates = f'W: {w}{(winrate * 100):.2f}%, P: {p}{(playrate * 100):.2f}%, B: {b}{(banrate * 100):.2f}%'
+
+            n = len(str(i + 1))
+            n = ' ' * (3 - n + 1)
+            g = 24 - len(name)
+            g = ' ' * g
+            entry = f'{i + 1}:{n}{name},{role},{g}{rates}\n'
+            best.append(entry)
+        # TODO: Cache this
+
+        # Say it out
+        if len(best) == 0:
+            await self.bot.say('No best champions (apparently).')
+        else:
+            msgs = list()
+            c = 0
+            while c < len(best):
+                msg = ''
+                # print(c)
+                for i in range(c, c + 25):
+                    if i >= len(best):
+                        c = len(best)
+                        break
+                    # print(i, end=', ')
+                    msg += best[i]
+                msgs.append(msg)
+                c += 25
+            for m in msgs:
+                await self.bot.say('```' + m + '```')
+
 
     @commands.command(name='info', pass_context=True)
-    async def info(self, ctx, *, name: str = None):
-        name, region = await self.__check_summoner(name)
-        if name == None:
-            return
+    async def info(self):
         try:
-            summoner = await self.__find_summoner(name, region)
-            # Look at cool stuff
-            pi = self.watcher.static_data.profile_icons(region)
-            print('PROFILE ICON:\n\n')
-            print(pi, end='\n\n')
-
-            cm = self.watcher.champion_mastery.by_summoner(region, summoner['id'])
-            print('CHAMPION MASTERY:\n\n')
-            print(cm, end='\n\n')
-            m = self.watcher.match.matchlist_by_account_recent(region, summoner['accountId'])
-            print('MATCH:\n\n')
-            print(m, end='\n\n')
-            s = self.watcher.spectator.by_summoner(region, summoner['id'])
-            print('SPECTATOR:\n\n')
-            print(s, end='\n\n')
-            r = self.watcher.runes.by_summoner(region, summoner['id'])
-            print('RUNES:\n\n')
-            print(r, end='\n\n')
-            # c = self.watcher.champion.all(region)
-            # print('CHAMPIONS:\n\n')
-            # print(c, end='\n\n')
-            ls = self.watcher.lol_status.shard_data(region)
-            print('LOL STATUS:\n\n')
-            print(ls, end='\n\n')
-            ch = self.watcher.static_data.champion(region,1)
-            print('CHAMPION:\n\n')
-            print(ch, end='\n\n')
-            ru = self.watcher.static_data.rune(region, 1)
-            print('RUNE:\n\n')
-            print(ru, end='\n\n')
-            it = self.watcher.static_data.item(region, 1)
-            print('ITEM:\n\n')
-            print(it, end='\n\n')
-            ma = self.watcher.static_data.mastery(region, 1)
-            print('MASTERY:\n\n')
-            print(ma, end='\n\n')
-            map = self.watcher.static_data.maps(region, 1)
-            print('MAP:\n\n')
-            print(map, end='\n\n')
-
-            ss = self.watcher.static_data.summoner_spell(region, 1)
-            print('SUMMONER SPELL:\n\n')
-            print(ss, end='\n\n')
-            # self.watcher.match.
+            # print('STATISTICS OVERALL:\n', py_gg.statistics.overall())
+            # print('STATISTICS GENERAL:\n', py_gg.statistics.general())
+            # print('CHAMPIONS ALL:\n', py_gg.champions.all())
+            print('CHAMPIONS ABRIDGED:\n', py_gg.champions.all({'abriged': 'True'}))
+            # print('CHAMPION 18:\n', self.watcher.static_data.champion(self.DEFAULT_REGION, 18))
+    # async def info(self, ctx, *, name: str = None):
+        # name, region = await self.__check_summoner(name)
+        # if name == None:
+        #     return
+        # try:
+        #     summoner = await self.__find_summoner(name, region)
+        #     # Look at cool stuff
+        #     pi = self.watcher.static_data.profile_icons(region)
+        #     print('PROFILE ICON:\n\n')
+        #     print(pi, end='\n\n')
+        #
+        #     cm = self.watcher.champion_mastery.by_summoner(region, summoner['id'])
+        #     print('CHAMPION MASTERY:\n\n')
+        #     print(cm, end='\n\n')
+        #     m = self.watcher.match.matchlist_by_account_recent(region, summoner['accountId'])
+        #     print('MATCH:\n\n')
+        #     print(m, end='\n\n')
+        #     s = self.watcher.spectator.by_summoner(region, summoner['id'])
+        #     print('SPECTATOR:\n\n')
+        #     print(s, end='\n\n')
+        #     r = self.watcher.runes.by_summoner(region, summoner['id'])
+        #     print('RUNES:\n\n')
+        #     print(r, end='\n\n')
+        #     # c = self.watcher.champion.all(region)
+        #     # print('CHAMPIONS:\n\n')
+        #     # print(c, end='\n\n')
+        #     ls = self.watcher.lol_status.shard_data(region)
+        #     print('LOL STATUS:\n\n')
+        #     print(ls, end='\n\n')
+        #     ch = self.watcher.static_data.champion(region,1)
+        #     print('CHAMPION:\n\n')
+        #     print(ch, end='\n\n')
+        #     ru = self.watcher.static_data.rune(region, 1)
+        #     print('RUNE:\n\n')
+        #     print(ru, end='\n\n')
+        #     it = self.watcher.static_data.item(region, 1)
+        #     print('ITEM:\n\n')
+        #     print(it, end='\n\n')
+        #     ma = self.watcher.static_data.mastery(region, 1)
+        #     print('MASTERY:\n\n')
+        #     print(ma, end='\n\n')
+        #     map = self.watcher.static_data.maps(region, 1)
+        #     print('MAP:\n\n')
+        #     print(map, end='\n\n')
+        #
+        #     ss = self.watcher.static_data.summoner_spell(region, 1)
+        #     print('SUMMONER SPELL:\n\n')
+        #     print(ss, end='\n\n')
+        #     # self.watcher.match.
 
         finally:
             None
@@ -1118,6 +1558,9 @@ class LoL:
             if opts['all']:
                 for o in opts.keys():
                     opts[o] = True
+        else:
+            for o in opts.keys():
+                opts[o] = True
         # Return the name and the options
         return name, opts
 
@@ -1130,6 +1573,42 @@ class LoL:
         else:
             map = 'SR'
         return name, map
+
+    def __parse_champion_stat(self, string):
+        # Format is name -e=elo -r=role -m -b (everything but name is optional)
+        # Split on -
+        splits = re.split(' ?-', string)
+        name = splits[0]
+        opts = {o: False for o in self.OPTS['Stats']}
+        # print(opts)
+        role = 'all'
+        elo = 'top'
+        print(splits)
+        # Iterate through and check the opts
+        if len(splits) > 1:
+            for s in splits[1:]:
+                # Only get first char (because some opts have params)
+                if s[0] in self.OPTS['Stats']:
+                    opts[s[0]] = True
+                    if s[0] == 'p':
+                        # split on =
+                        psplits = re.split(' ?= ?', s)
+                        if len(psplits) > 1:
+                            role = psplits[1]
+                    if s[0] == 'e':
+                        # split on =
+                        esplits = re.split(' ?= ?', s)
+                        if len(esplits) > 1:
+                            elo = esplits[1]
+            if opts['a']:
+                for o in opts.keys():
+                    opts[o] = True
+
+        else:
+            for o in opts.keys():
+                opts[o] = True
+
+        return name, elo, role, opts
 
     def __get_champion_base_as(self, offset):
         return 0.625 / (1 + offset)
@@ -1184,6 +1663,18 @@ class LoL:
         item = re.sub('\</?[a-zA-Z0-9 #=\']*\>', '', item)
         return item
 
+    def __get_ranking_string(self, current, previous):
+        delta = current - previous
+        dir = 'down {}'.format(delta) if delta > 0 else ('up {}'.format(delta * -1) if delta < 0 else 'no change')
+        return '{} {} from {}'.format(current, dir, previous)
+
+    def __get_maxmin_string(self, min, max, percent=False):
+        if DiscoUtils.DEBUG:
+            print('Min: ', min, ', Max: ', max)
+        if percent:
+            return '{:.2f}% to {:.2f}%'.format(min * 100, max * 100)
+        return '{:.2f} to {:.2f}'.format(min, max)
+
     async def __parse_summoner(self, string):
         name, region = DiscoUtils.parse_into_two(string, ' ?-')
         if region is None:
@@ -1235,6 +1726,5 @@ class LoL:
             # Download the json file
             DiscoFile.download_file(url + name + '.json', path + name + '.json')
         # Open the json file
-        with open(path + name + '.json') as f:
-            j = json.loads(f.read())
-        return j
+        return DiscoFile.load_json(path + name + '.json')
+
