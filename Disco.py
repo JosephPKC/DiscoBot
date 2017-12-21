@@ -1,5 +1,7 @@
 import sys
 
+from Managers import DownloadManager, CacheManager
+
 try:
     import discord
     from discord.ext import commands
@@ -24,8 +26,12 @@ with open('config.txt', 'r') as file:
 
 # Create the bot
 bot = commands.Bot(command_prefix=prefix, descriptio='Shurima')
+
+downloader = DownloadManager.DownloadManager()
+cacher = CacheManager.CacheManager()
+
 cogs = [
-    DiscoLoL.LoL(bot, riot)
+    DiscoLoL.LoL(bot, riot, downloader, cacher)
 ]
 
 @bot.event

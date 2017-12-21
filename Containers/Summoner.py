@@ -1,10 +1,11 @@
 from Data.values import LoLvals
 
 class Summoner:
-    def __init__(self, name, region, id, level, icon, ranks, **kwargs):
+    def __init__(self, name, region, id, accountId, level, icon, ranks, **kwargs):
         self.name = name
         self.region = region
         self.id = id
+        self.accountId = accountId
         self.level = level
         self.icon = icon
         self.ranks = {}
