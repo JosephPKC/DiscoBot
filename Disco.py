@@ -1,48 +1,58 @@
+# region Imports
 import sys
-
-from Managers import DownloadManager, CacheManager
 
 try:
     import discord
     from discord.ext import commands
 except ImportError:
-    print('Discord.py is not installed\n. Do pip install discord.py[voice]\n.')
+    print('Discord.py not found.')
+    print('pip install discord.py[voice].')
     sys.exit(2)
 
+from cog import DiscoLoLCog
+from manager import CacheManager, DatabaseManager, FileManager
+from value import GeneralValues as Gv
+# endregion
 
-from Cogs import DiscoLoL
+# region Global Constants
+path = 'config.txt'
+blurb = 'Shurima'
+game = 'Ascension'
+prefix = '\\'
+# endregion
 
-'''
-The main file for Disco Bot.
-Starts up the bot, and queues up any enabled cogs.
-'''
-
-# Get keys
-with open('config.txt', 'r') as file:
-    token = file.readline().rstrip('\n')
-    riot = file.readline().rstrip('\n')
-    key = file.readline().rstrip('\n')
-    prefix = file.readline().rstrip('\n')
+# region Start Script
+# Get keys from file
+with open(path, 'r') as file:
+    discord_key = file.readline().rstrip('\n')
+    riot_api_key = file.readline().rstrip('\n')
+    champion_gg_key = file.readline().rstrip('\n')
 
 # Create the bot
-bot = commands.Bot(command_prefix=prefix, descriptio='Shurima')
+bot = commands.Bot(command_prefix=prefix, description=blurb)
 
-downloader = DownloadManager.DownloadManager()
-cacher = CacheManager.CacheManager()
+# Create the managers
+cache = CacheManager.CacheManager(Gv.db_freshness, Gv.api_freshness, Gv.str_freshness)
+database = DatabaseManager.DatabaseManager(Gv.lol_db_path, cache)
+file = FileManager.FileManager(Gv.general_path_prefix)
 
+# Prepare the cogs
 cogs = [
-    DiscoLoL.LoL(bot, riot, downloader, cacher)
+    DiscoLoLCog.DiscoLoLCog(bot, riot_api_key, champion_gg_key, cache, database, file)
 ]
 
+
+# Wait for ready
 @bot.event
 async def on_ready():
-    print(prefix)
-    print('Logged in and ready to go...')
-    await bot.change_presence(game=discord.Game(name='Ascension'))
+    print('Disco Bot is ready to Shurima.')
+    await bot.change_presence(game=discord.Game(name=game))
 
+# Add cogs and run
 try:
     for c in cogs:
         bot.add_cog(c)
-    bot.run(token)
+    bot.run(discord_key)
 finally:
     bot.close()
+# endregion
