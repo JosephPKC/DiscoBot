@@ -52,29 +52,14 @@ class LoLPlayer:
 
     def to_str(self, depth=0):
         tabs = '\t' * depth
-        string = 'Name: {}\n'.format(self.name)
-        string += 'Region: {}\n'.format(Lv.regions_string_map[self.region])
-        string += 'Level: {}\n'.format(self.level)
-        string += 'Ranked Info:\n'
+        string = '{}Name: {}\n'.format(tabs, self.name)
+        string += '{}Region: {}\n'.format(tabs, Lv.regions_string_map[self.region])
+        string += '{}Level: {}\n'.format(tabs, self.level)
+        string += '{}Ranked Info:\n'.format(tabs)
         if self.ranks:
             for r in self.ranks.keys():
                 string += str(self.ranks[r].to_str(depth + 1)[0]) + '\n'
         else:
-            string += "{}Placements not finished.\n".format(tabs + '\t')
+            string += "{}\tPlacements not finished.\n".format(tabs)
         return [string]
-# endregion
-
-# region Factory
-def create_lol_player(region, player, ranks):
-    if region is None or player is None or ranks is None:
-        return None
-    str_ranks = []
-    for r in ranks:
-        str_ranks.append(LoLPlayerRankPackage(r['leagueName'], r['queueType'],
-                                              r['tier'], r['rank'], r['leaguePoints'],
-                                              r['wins'], r['losses'], r['veteran'],
-                                              r['inactive'], r['freshBlood'],
-                                              r['hotStreak']))
-    return LoLPlayer(region, player['name'], player['id'], player['accountId'],
-                     player['summonerLevel'], player['profileIconId'], str_ranks)
 # endregion

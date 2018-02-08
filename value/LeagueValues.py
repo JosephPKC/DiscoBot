@@ -12,6 +12,7 @@ profile_icon_url_part = '/img/profileicon/'
 
 # region Defaults
 default_region = 'na1'
+default_amount_range_match_list = [1, 20]
 # endregion
 
 # region Mappings
@@ -36,6 +37,22 @@ queues_string_map = {
     'RANKED_SOLO_5x5': 'Solo 5v5',
     'RANKED_TEAM_3x3': 'Team 3v3',
     'RANKED_TEAM_5x5': 'Team 5v5'
+}
+
+lanes_string_map = {
+    'TOP': 'Top',
+    'JUNGLE': 'Jungle',
+    'MID': 'Middle',
+    'MIDDLE': 'Middle',
+    'BOTTOM': 'Bottom'
+}
+
+roles_string_map = {
+    'DUO_SUPPORT': 'Support',
+    'DUO_CARRY': 'Carry',
+    'NONE': '',
+    'SOLO': 'Solo',
+    'DUO': 'Duo'
 }
 # endregion
 
