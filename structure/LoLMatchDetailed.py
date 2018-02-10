@@ -1,14 +1,11 @@
 # region Imports
-from value import LeagueValues as Lv
+from value import LeagueValues as Lv, GeneralValues as Gv
 # endregion
 
 
 class LoLMatchDetailedTimelinePackage:
-    def __init__(self, vals):
-        self.timeline = []
-        times = ['0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80']
-        for i, v in enumerate(vals):
-            self.timeline.append([times[i], v])
+    def __init__(self, timeline):
+        self.timeline = timeline
 
 
 class LoLMatchDetailedRunePackage:
@@ -99,7 +96,7 @@ class LoLMatchDetailedPlayerPackage:
 
         string += '{}Final Items:\n'.format(tabs)
         for i, item in enumerate(self.item_pair_list):
-            string += '\t{}{}. {}\n'.format(tabs, i + 1, item[1])
+            string += '\t{}{}: {}\n'.format(tabs, 'Trinket' if i == 6 else i + 1, item[1])
 
         if use_runes:
             string += '{}Primary: {}\n'.format(tabs, self.rune_list[0].style_pair[1])
@@ -113,7 +110,7 @@ class LoLMatchDetailedPlayerPackage:
                 string += '\t{}{}\n'.format(tabs, r.name)
                 for v in r.var_pair_list:
                     string += '\t\t{}{}: {}\n'.format(tabs, v[0], v[1])
-            strings.append(string)
+        strings.append(string)
 
         string = ''
         if use_details:
@@ -153,7 +150,7 @@ class LoLMatchDetailedPlayerPackage:
             if self.vision_triple[0]:
                 string += '{}Vision Score: {}, Vision Bought: {}\n'\
                     .format(tabs, self.vision_triple[1], self.vision_triple[2])
-            string += '{}Crowd Control: {}\n'.format(tabs, self.cc)
+            string += '{}Crowd Control Time: {}\n'.format(tabs, self.cc)
             string += '{}Gold Spent/Earned: {}/{}\n'.format(tabs, self.gold_pair[0], self.gold_pair[1])
             string += '\n'
 
@@ -268,11 +265,12 @@ class LoLMatchDetailedTeamPackage:
 
 
 class LoLMatchDetailed:
-    def __init__(self, region, match_id, queue_pair, season_pair, team_pair):
+    def __init__(self, region, match_id, queue_pair, season_pair, duration, team_pair):
         self.region = region
         self.match_id = match_id
         self.queue_pair = queue_pair
         self.season_pair = season_pair
+        self.duration = duration
         self.team_pair = team_pair
 
     def to_str(self, use_runes=False, use_details=False, use_timeline=False, depth=0):
@@ -281,7 +279,9 @@ class LoLMatchDetailed:
         string = '{}Match ID: {}\n'.format(tabs, self.match_id)
         string += '{}Region: {}\n'.format(tabs, Lv.regions_string_map[self.region])
         string += '{}{}\n'.format(tabs, self.season_pair[1])
-        string += '{}{}\n\n'.format(tabs, self.queue_pair[1])
+        string += '{}{}\n'.format(tabs, self.queue_pair[1])
+        minutes, seconds = Gv.get_minutes_seconds(self.duration)
+        string += '{}Duration: {}:{:02d}\n'.format(tabs, int(minutes), round(seconds))
         strings.append(string)
 
         team1 = self.team_pair[0].\

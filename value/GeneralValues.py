@@ -39,7 +39,7 @@ general_path_prefix = 'data\\'
 lol_db_path = 'data\\LoLStaticData.db'
 
 # Prefix
-argument_prefix = ':'
+argument_prefix = '-'
 argument_value_prefix = '='
 
 # Time, Durations
@@ -49,6 +49,12 @@ str_freshness = 30
 # endregion
 
 # region Methods
+
+
 def print_cache(key, found):
     print('{}: {}.'.format('FOUND' if found else 'NOT FOUND', key))
+
+
+def get_minutes_seconds(time_in_s):
+    return time_in_s / 60, time_in_s % 60
 # endregion

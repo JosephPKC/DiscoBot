@@ -175,7 +175,7 @@ class DatabaseManager:
             return None
         cur = self.__lol_con.cursor()
         query = 'SELECT Name, Var1, Var2, Var3, ' \
-                'HasTimeVar, HasPercentVar, HasSecVar, HasTimingVar ' \
+                'HasTimeVar, HasPercentVar, HasSecVar, HasPerfectVar ' \
                 'FROM Runes WHERE Id = {};'\
             .format(str(rune_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
@@ -195,7 +195,7 @@ class DatabaseManager:
             'hasTimeVar': cached[4],
             'hasPercentVar': cached[5],
             'hasSecVar': cached[6],
-            'hasTimingVar': cached[7]
+            'hasPerfectVar': cached[7]
         }
         return results
     # endregion

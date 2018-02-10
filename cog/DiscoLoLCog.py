@@ -144,7 +144,7 @@ class DiscoLoLCog:
             amount = int(amount)
 
         # Check Cache
-        str_key = (region, name,Gv.CacheKeyType.STR_LOL_MATCH_LIST)
+        str_key = (region, name, Gv.CacheKeyType.STR_LOL_MATCH_LIST)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
             Gv.print_cache(str_key, False)
@@ -155,7 +155,8 @@ class DiscoLoLCog:
                 return
             matchlist = self.__find_match_list(region, player['accountId'])
             if matchlist is None:
-                await self.__bot.say('Recent matches not found for player **{}** in region **{}**.'.format(name, region))
+                await self.__bot.say('Recent matches not found for player **{}** in region **{}**.'
+                                     .format(name, region))
                 return
             # Create and Cache Storage Structure
             cached = self.__create_match_list(region, player, matchlist)
@@ -205,9 +206,9 @@ class DiscoLoLCog:
             return
         region = region_temp
         # Get and Check Flags
-        useRune, _, others = self.__parse_args(others, 'r')
-        useDetail, _, others = self.__parse_args(others, 'd')
-        useTimeline, _, _ = self.__parse_args(others, 't')
+        use_rune, _, others = self.__parse_args(others, 'rd')
+        use_detail, _, others = self.__parse_args(others, 'd')
+        use_timeline, _, _ = self.__parse_args(others, 't')
         # Check Cache
         str_key = (region, match_id, Gv.CacheKeyType.STR_LOL_MATCH_DETAILED)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
@@ -230,12 +231,12 @@ class DiscoLoLCog:
                 await self.__bot.say('Match **{}** not found in region **{}**.'.format(match_id, region))
                 return
             # Create and Cache Storage Structure
-
+            cached = self.__create_match_detailed(region, match)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         else:
             Gv.print_cache(str_key, True)
         # Display Storage Structure
-        for s in cached.to_str():
+        for s in cached.to_str(use_rune, use_detail, use_timeline):
             await self.__bot.say('```{}```'.format(s))
     # endregion
 
@@ -378,9 +379,6 @@ class DiscoLoLCog:
                                      player_stats['win'], queue_results['hasLanes'])
 
     def __create_match_detailed(self, region, match):
-        team1 = []
-        team2 = []
-        participants = match['participants']
         queue_results = self.__database.select_lol_queue(match['queueId'],
                                                          True, True, True,
                                                          True, True, True, True,
@@ -390,8 +388,53 @@ class DiscoLoLCog:
                                   '' if queue_results['extra'] is None
                                   else ' {}'.format(queue_results['extra']))
 
+        season_results = self.__database.select_lol_season(match['seasonId'])
 
-    def __create_match_detailed_player(self, name, player):
+        team1 = self.__create_match_detailed_team(match, 0, queue_results)
+        team2 = self.__create_match_detailed_team(match, 1, queue_results)
+
+        return LoLMatchDetailed.LoLMatchDetailed(
+            region, match['gameId'], [match['queueId'], queue],
+            [match['seasonId'], season_results], match['gameDuration'],
+            [team1, team2]
+        )
+
+    def __create_match_detailed_team(self, match, index, queue_results):
+        players_per_team = queue_results['numOfPlayers'] // 2
+        team = match['teams'][index]
+        if index == 0:
+            offset = 0
+            participants = match['participants'][:players_per_team]
+        else:
+            offset = players_per_team
+            participants = match['participants'][players_per_team:]
+
+        players = []
+        for i, p in enumerate(participants):
+            players.append(self.__create_match_detailed_player(
+                    match['participantIdentities'][i + offset]['player']['summonerName'],
+                    p, queue_results
+                ))
+
+        bans = []
+        for b in team['bans']:
+            champ = self.__database.select_lol_champion(b['championId'])
+            bans.append([b['championId'], champ])
+
+        return LoLMatchDetailed.LoLMatchDetailedTeamPackage(
+            team['win'] == 'Win', [queue_results['hasTowers'], team['towerKills']],
+            [queue_results['hasTowers'], team['inhibitorKills']],
+            [queue_results['hasDragons'], team['dragonKills']],
+            [queue_results['hasBarons'], team['baronKills']],
+            [queue_results['hasHeralds'], team['riftHeraldKills']],
+            [queue_results['hasVilemaws'], team['vilemawKills']],
+            team['firstBlood'], team['firstTower'], team['firstInhibitor'],
+            team['firstDragon'], team['firstBaron'],
+            [queue_results['hasScore'], team['dominionVictoryScore']],
+            bans, players
+        )
+
+    def __create_match_detailed_player(self, name, player, queue_results):
         stats = player['stats']
         timeline = player['timeline']
         champion = self.__database.select_lol_champion(player['championId'])
@@ -399,20 +442,106 @@ class DiscoLoLCog:
         spell2 = self.__database.select_lol_summoner_spell(player['spell2Id'])
 
         items = []
-        for v in range(0, 5):
-            items.append(self.__database.select_lol_item(stats['item{}'.format(v)]))
+        for i in range(0, 7):
+            item = self.__database.select_lol_item(stats['item{}'.format(i)])
+            items.append([stats['item{}'.format(i)], item])
 
         runes = []
+        for r in range(0, 6):
+            runes.append(self.__create_match_detailed_rune(stats, r))
 
+        damage_dealt = LoLMatchDetailed.LoLMatchDetailedDamagePackage(
+            stats['totalDamageDealt'], stats['magicDamageDealt'],
+            stats['physicalDamageDealt'], stats['trueDamageDealt']
+        )
+
+        damage_to_champs = LoLMatchDetailed.LoLMatchDetailedDamagePackage(
+            stats['totalDamageDealtToChampions'], stats['magicDamageDealtToChampions'],
+            stats['physicalDamageDealtToChampions'], stats['trueDamageDealtToChampions']
+        )
+
+        damage_taken = LoLMatchDetailed.LoLMatchDetailedDamagePackage(
+            stats['totalDamageTaken'], stats['magicalDamageTaken'],
+            stats['physicalDamageTaken'], stats['trueDamageTaken']
+        )
+
+        timelines = []
+        times = ['0-10', '10-20', '20-30', '30-end']
+        headers = ['creepsPerMinDeltas', 'csDiffPerMinDeltas', 'xpPerMinDeltas',
+                   'xpDiffPerMinDeltas', 'goldPerMinDeltas', 'damageTakenPerMinDeltas',
+                   'damageTakenDiffPerMinDeltas']
+        for h in headers:
+            data = timeline[h]
+            timeline_single = []
+            for t in times[:len(data)]:
+                timeline_single.append([t, data[t]])
+            timelines.append(LoLMatchDetailed.LoLMatchDetailedTimelinePackage(timeline_single))
 
         return LoLMatchDetailed.LoLMatchDetailedPlayerPackage(
             name, [player['championId'], champion], timeline['role'],
             timeline['lane'],
             [[player['spell1Id'], spell1], [player['spell2Id'], spell2]],
-            items,
+            items, runes, [stats['kills'], stats['deaths'], stats['assists']],
+            stats['largestKillingSpree'], stats['largestMultiKill'],
+            stats['doubleKills'], stats['tripleKills'], stats['quadraKills'],
+            stats['pentaKills'], stats['unrealKills'], stats['largestCriticalStrike'],
+            damage_dealt, damage_to_champs, damage_taken, stats['totalHeal'],
+            stats['damageSelfMitigated'], stats['damageDealtToObjectives'],
+            stats['damageDealtToTurrets'], [queue_results['hasVision'],
+                                            stats['visionScore'],
+                                            stats['visionWardsBoughtInGame']],
+            stats['timeCCingOthers'], [stats['goldSpent'], stats['goldEarned']],
+            [queue_results['hasTowers'], stats['turretKills']],
+            [queue_results['hasTowers'], stats['inhibitorKills']],
+            stats['totalMinionsKilled'],
+            [queue_results['hasMonsters'], stats['neutralMinionsKilled']],
+            [stats['firstBloodKill'], stats['firstBloodAssist']],
+            [stats['firstTowerKill'], stats['firstTowerAssist']],
+            [stats['firstInhibitorKill'], stats['firstInhibitorAssist']],
+            [queue_results['hasScore'], stats['totalPlayerScore']],
+            queue_results['hasLanes'], timelines
         )
 
-    def __create_match_detailed_rune(self):
+    def __create_match_detailed_rune(self, stats, index):
+        rune_string = 'perk{}'.format(index)
+        style = stats['perkPrimaryStyle'] if index < 4 else stats['perkSubStyle']
+        style_results = self.__database.select_lol_rune_style(style)
+        rune_results = self.__database.select_lol_rune(stats[rune_string])
+
+        rune_vars = []
+        did_time = False
+        did_percent = False
+        did_sec = False
+        for i, v in enumerate(rune_results['vars']):
+            if v is None:
+                continue
+            if rune_results['hasTimeVar'] and not did_time:
+                val = '{}:{:02d}'\
+                    .format(stats['{}Var{}'.format(rune_string, i + 1)],
+                            stats['{}Var{}'.format(rune_string, i + 2)])
+                rune_vars.append([v, val])
+                did_time = True
+            elif rune_results['hasPercentVar'] and not did_percent:
+                val = '{}%' \
+                    .format(stats['{}Var{}'.format(rune_string, i + 1)])
+                rune_vars.append([v, val])
+                did_percent = True
+            elif rune_results['hasSecVar'] and not did_sec:
+                val = '{}s' \
+                    .format(stats['{}Var{}'.format(rune_string, i + 1)])
+                rune_vars.append([v, val])
+                did_sec = True
+            elif rune_results['hasPerfectVar']:
+                print('time var')
+                val = 'Perfect'
+                rune_vars.append([v, val])
+            elif not did_time or not did_percent or not did_sec:
+                rune_vars.append([v, stats['{}Var{}'.format(rune_string, i + 1)]])
+
+        return LoLMatchDetailed.LoLMatchDetailedRunePackage(
+            stats[rune_string], [style, style_results],
+            rune_results['name'], rune_vars
+        )
     # endregion
 
     # region Parsing
