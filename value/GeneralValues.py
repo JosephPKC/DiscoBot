@@ -24,6 +24,8 @@ class CacheKeyType(Enum):
     API_LOL_MATCH_TIMELINE = 9
     STR_LOL_MASTERY = 10
     API_LOL_MASTERY = 11
+    STR_LOL_TOTAL_MASTERY = 12
+    API_LOL_TOTAL_MASTERY = 13
 # endregion
 
 

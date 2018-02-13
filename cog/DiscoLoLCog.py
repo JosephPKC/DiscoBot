@@ -21,7 +21,8 @@ except ImportError:
 from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager
 from structure import LoLPlayer, LoLMatchList, \
-    LoLMatchDetailed, LoLMatchTimeline, LoLMasteries
+    LoLMatchDetailed, LoLMatchTimeline, LoLMasteries,\
+    LoLTotalMastery
 # endregion
 
 
@@ -367,7 +368,7 @@ class DiscoLoLCog:
             await self.__bot.say('```{}```'.format(s))
 
     @lol.command(name='mastery', aliases=[],
-                 pass_context=True, help='Get champion masteries.')
+                 pass_context=True, help='Get champion mastery.')
     async def mastery(self, ctx, *, cmd_input: str = None):
         print('Command: {}'.format(ctx.command))
         if cmd_input is None:
@@ -409,6 +410,51 @@ class DiscoLoLCog:
                 return
             # Create and Cache Storage Structure
             cached = self.__create_masteries_mastery(mastery)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        else:
+            Gv.print_cache(str_key, True)
+        # Display Storage Structure
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='totalmastery', aliases=[],
+                 pass_context=True, help='Get total mastery.')
+    async def totalmastery(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('totalmastery'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('totalmastery'))
+            return
+        name = inputs[0]
+
+        # Get and Check Region
+        _, region, _ = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+
+        # Check Cache
+        str_key = (region, name, Gv.CacheKeyType.STR_LOL_TOTAL_MASTERY)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            Gv.print_cache(str_key, False)
+            # Get Data via API
+            player = self.__find_player(region, name)
+            if player is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            total_mastery = self.__find_total_mastery(region, player['id'])
+            if total_mastery is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_total_mastery(region, total_mastery, player)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         else:
             Gv.print_cache(str_key, True)
@@ -535,6 +581,24 @@ class DiscoLoLCog:
             Gv.print_cache(api_key, False)
             try:
                 masteries = self.__watcher.champion_mastery.by_summoner_by_champion(region, player_id, champion_id)
+                self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
+                return masteries
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                return None
+        else:
+            Gv.print_cache(api_key, True)
+            return cached
+
+    def __find_total_mastery(self, region, player_id):
+        if region is None or player_id is None:
+            return None
+        api_key = (region, player_id, Gv.CacheKeyType.API_LOL_TOTAL_MASTERY)
+        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
+        if cached is None:
+            Gv.print_cache(api_key, False)
+            try:
+                masteries = self.__watcher.champion_mastery.scores_by_summoner(region, player_id)
                 self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
                 return masteries
             except requests.HTTPError as e:
@@ -919,6 +983,11 @@ class DiscoLoLCog:
             mastery_info['championPointsUntilNextLevel'],
             mastery_info['chestGranted'], mastery_info['tokensEarned']
         )
+
+    def __create_total_mastery(self, region, total_mastery, player):
+        return LoLTotalMastery.LoLTotalMastery(
+            region, player['name'], player['id'], total_mastery
+        )
     # endregion
 
     # region Parsing
@@ -1003,6 +1072,9 @@ class DiscoLoLCog:
                 .format(prefix, value_prefix, prefix, value_prefix, prefix)
         elif command == 'mastery':
             return 'mastery *name* *champion* [{}r{}*region*]' \
+                .format(prefix, value_prefix)
+        elif command == 'totalmastery':
+            return 'mastery *name* [{}r{}*region*]' \
                 .format(prefix, value_prefix)
         else:
             return ''
