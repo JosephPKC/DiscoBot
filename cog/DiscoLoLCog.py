@@ -365,6 +365,56 @@ class DiscoLoLCog:
         # Display Storage Structure
         for s in cached.to_str(amount, use_asc):
             await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='mastery', aliases=[],
+                 pass_context=True, help='Get champion masteries.')
+    async def mastery(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('mastery'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) < 2 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('mastery'))
+            return
+        name = inputs[0]
+        champion = inputs[1]
+
+        # Get and Check Region
+        _, region, _ = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+
+        # Check Cache
+        str_key = (region, name, champion, Gv.CacheKeyType.STR_LOL_MASTERY)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            Gv.print_cache(str_key, False)
+            # Get Data via API
+            player = self.__find_player(region, name)
+            if player is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            champion_id = self.__database.select_lol_champion_inverted(champion)
+            if champion_id is None:
+                await self.__bot.say('Champion **{}** does not exist.'.format(champion))
+                return
+            mastery = self.__find_mastery(region, player['id'], champion_id)
+            if mastery is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_masteries_mastery(mastery)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        else:
+            Gv.print_cache(str_key, True)
+        # Display Storage Structure
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
     # endregion
 
     # region Retrieval, API Calls
@@ -467,6 +517,24 @@ class DiscoLoLCog:
             Gv.print_cache(api_key, False)
             try:
                 masteries = self.__watcher.champion_mastery.by_summoner(region, player_id)
+                self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
+                return masteries
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                return None
+        else:
+            Gv.print_cache(api_key, True)
+            return cached
+
+    def __find_mastery(self, region, player_id, champion_id):
+        if region is None or player_id is None or champion_id is None:
+            return None
+        api_key = (region, player_id, champion_id, Gv.CacheKeyType.API_LOL_MASTERY)
+        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
+        if cached is None:
+            Gv.print_cache(api_key, False)
+            try:
+                masteries = self.__watcher.champion_mastery.by_summoner_by_champion(region, player_id, champion_id)
                 self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
                 return masteries
             except requests.HTTPError as e:
@@ -933,6 +1001,9 @@ class DiscoLoLCog:
         elif command == 'masteries':
             return 'masteries *name* [{}r{}*region*] [{}a{}*amount* 1+] [{}asc]' \
                 .format(prefix, value_prefix, prefix, value_prefix, prefix)
+        elif command == 'mastery':
+            return 'mastery *name* *champion* [{}r{}*region*]' \
+                .format(prefix, value_prefix)
         else:
             return ''
 

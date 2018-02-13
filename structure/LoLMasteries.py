@@ -27,7 +27,7 @@ class LoLMasteriesMastery:
         string += '{}Tokens Earned: {}\n'.format(tabs, self.tokens_earned)
         if self.chest_granted:
             string += '{}Chest Granted.\n'.format(tabs)
-        return string
+        return [string]
 
 
 class LoLMasteries:
@@ -48,7 +48,7 @@ class LoLMasteries:
         if use_asc:
             self.masteries_list.reverse()
         for i, m in enumerate(self.masteries_list[:amount]):
-            string += '{}\n'.format(m.to_str(depth + 1))
+            string += '{}\n'.format(m.to_str(depth + 1)[0])
             if i % 10 >= 9:
                 strings.append(string)
                 string = ''
