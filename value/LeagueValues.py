@@ -39,6 +39,17 @@ queues_string_map = {
     'RANKED_TEAM_5x5': 'Team 5v5'
 }
 
+queues_string_map_inverted = {
+    'solosr': 'RANKED_SOLO_5x5',
+    'solo': 'RANKED_SOLO_5x5',
+    'flexsr': 'RANKED_FLEX_SR',
+    'flextt': 'RANKED_FLEX_TT'
+}
+
+tiers_string_map = {
+    'CHALLENGER': 'Challenger'
+}
+
 lanes_string_map = {
     'TOP': 'Top',
     'JUNGLE': 'Jungle',
@@ -68,8 +79,9 @@ events_string_map = {
     'AIR_DRAGON': 'Cloud Dragon',
     'EARTH_DRAGON': 'Mountain Dragon',
     'FIRE_DRAGON': 'Infernal Dragon',
+    'ELDER_DRAGON': 'Elder Dragon',
     'BARON_NASHOR': 'Baron',
-    'RIFT_HERALD': 'Rift Herald',
+    'RIFTHERALD': 'Rift Herald',
     'VILE_MAW': 'Vile\'Maw'
 }
 # endregion

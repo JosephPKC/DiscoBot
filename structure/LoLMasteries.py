@@ -52,7 +52,7 @@ class LoLMasteries:
             if i % 10 >= 9:
                 strings.append(string)
                 string = ''
-            elif len(self.masteries_list) - i == 1:
+            elif len(self.masteries_list[:amount]) - i == 1:
                 strings.append(string)
         if use_asc:
             self.masteries_list.reverse()

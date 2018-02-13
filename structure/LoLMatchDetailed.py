@@ -35,8 +35,7 @@ class LoLMatchDetailedPlayerPackage:
                  damage_to_tower, vision_triple, cc,
                  gold_pair, towers_pair, inhibitors_pair,
                  cs, monster_pair, first_blood_pair,
-                 first_tower_pair, first_inhibitor_pair,
-                 score_pair, has_lanes, timeline_list):
+                 first_tower_pair, score_pair, has_lanes):
         self.name = name
         self.champion_pair = champion_pair
         self.role_id = role_id
@@ -69,10 +68,8 @@ class LoLMatchDetailedPlayerPackage:
         self.monster_pair = monster_pair
         self.first_blood_pair = first_blood_pair
         self.first_tower_pair = first_tower_pair
-        self.first_inhibitor_pair = first_inhibitor_pair
         self.score_pair = score_pair
         self.has_lanes = has_lanes
-        self.timeline_list = timeline_list
 
     def to_str(self, use_runes=False, use_details=False, use_timeline=False, depth=0):
         tabs = '\t' * depth
@@ -136,10 +133,6 @@ class LoLMatchDetailedPlayerPackage:
             if self.inhibitors_pair[0]:
                 string += '{}Inhibitors Killed: {}\n'\
                     .format(tabs, self.inhibitors_pair[1])
-                if self.first_inhibitor_pair[0]:
-                    string += '\t{}First Inhibitor Kill.\n'.format(tabs)
-                elif self.first_inhibitor_pair[1]:
-                    string += '\t{}First Inhibitor Assist.\n'.format(tabs)
             string += '\n'
 
             string += '{}CS: {}'.format(tabs, self.cs)
@@ -181,20 +174,20 @@ class LoLMatchDetailedPlayerPackage:
         string += '{}Largest Critical Strike: {}\n'.format(tabs, self.largest_critical)
         strings.append(string)
 
-        if use_timeline and self.has_lanes:
-            headers = ['{}CS Per Min:\n'.format(tabs),
-                       '{}CS Diffs Per Min:\n'.format(tabs),
-                       '{}XP Per Min:\n'.format(tabs),
-                       '{}XP Diffs Per Min:\n'.format(tabs),
-                       '{}Gold Per Min:\n'.format(tabs),
-                       '{}Damage Taken Per Min:\n'.format(tabs),
-                       '{}Damage Diffs Taken Per Min:\n'.format(tabs)]
-            string = ''
-            for i, t in enumerate(self.timeline_list):
-                string += headers[i]
-                for v in t.timeline:
-                    string += '\t{}{}: {}\n'.format(tabs, v[0], v[1])
-            strings.append(string)
+        # if use_timeline and self.has_lanes:
+        #     headers = ['{}CS Per Min:\n'.format(tabs),
+        #                '{}CS Diffs Per Min:\n'.format(tabs),
+        #                '{}XP Per Min:\n'.format(tabs),
+        #                '{}XP Diffs Per Min:\n'.format(tabs),
+        #                '{}Gold Per Min:\n'.format(tabs),
+        #                '{}Damage Taken Per Min:\n'.format(tabs),
+        #                '{}Damage Diffs Taken Per Min:\n'.format(tabs)]
+        #     string = ''
+        #     for i, t in enumerate(self.timeline_list):
+        #         string += headers[i]
+        #         for v in t.timeline:
+        #             string += '\t{}{}: {}\n'.format(tabs, v[0], v[1])
+        #     strings.append(string)
         return strings
 
 

@@ -27,14 +27,15 @@ class LoLPlayerRankPackage:
         string += '{}{} wins, {} losses, {:.2f}% winrate\n'.format(tabs, self.wins, self.losses, self.wr)
         if self.is_veteran or self.is_inactive or self.is_fresh or self.is_streak:
             string += '{}'.format(tabs)
-        if self.is_veteran:
-            string += 'Veteran. '
-        if self.is_inactive:
-            string += 'Inactive. '
-        if self.is_fresh:
-            string += 'Fresh Blood. '
-        if self.is_streak:
-            string += 'Hot Streak. '
+            if self.is_veteran:
+                string += 'Veteran. '
+            if self.is_inactive:
+                string += 'Inactive. '
+            if self.is_fresh:
+                string += 'Fresh Blood. '
+            if self.is_streak:
+                string += 'Hot Streak. '
+            string += '\n'
         return [string]
 
 
