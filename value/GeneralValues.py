@@ -20,6 +20,10 @@ class CacheKeyType(Enum):
     API_LOL_MATCH_LIST = 5
     API_LOL_MATCH = 6
     STR_LOL_MATCH_DETAILED = 7
+    STR_LOL_MATCH_TIMELINE = 8
+    API_LOL_MATCH_TIMELINE = 9
+    STR_LOL_MASTERY = 10
+    API_LOL_MASTERY = 11
 # endregion
 
 

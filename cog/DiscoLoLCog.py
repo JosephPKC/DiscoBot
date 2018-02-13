@@ -20,7 +20,8 @@ except ImportError:
 
 from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager
-from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed
+from structure import LoLPlayer, LoLMatchList, \
+    LoLMatchDetailed, LoLMatchTimeline, LoLMasteries
 # endregion
 
 
@@ -238,6 +239,132 @@ class DiscoLoLCog:
         # Display Storage Structure
         for s in cached.to_str(use_rune, use_detail, use_timeline):
             await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='timeline', aliases=[],
+                 pass_context=True, help='Get match timeline.')
+    async def timeline(self, ctx, *, cmd_input: str=None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('timeline'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('timeline'))
+            return
+        # Can be one input or two
+        if len(inputs) < 2:
+            match_id = inputs[0]
+            name = None
+            index = None
+        else:
+            match_id = None
+            name = inputs[0]
+            index = inputs[1]
+            try:
+                index = int(index)
+            except ValueError:
+                await self.__bot.say('Second input must be a number.')
+                return
+            if index < Lv.default_amount_range_match_list[0]:
+                index = Lv.default_amount_range_match_list[0]
+            elif index > Lv.default_amount_range_match_list[1]:
+                index = Lv.default_amount_range_match_list[1]
+
+        # Get and Check Region
+        _, region, _ = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+        # Check Cache
+        str_key = (region, match_id, Gv.CacheKeyType.STR_LOL_MATCH_TIMELINE)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            Gv.print_cache(str_key, False)
+            # Get Data Objects via API
+            if index is not None:
+                player = self.__find_player(region, name)
+                if player is None:
+                    self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                    return
+                matchlist = self.__find_match_list(region, player['accountId'])
+                if matchlist is None:
+                    await self.__bot.say(
+                        'Recent matches not found for player **{}** in region **{}**.'.format(name, region))
+                    return
+                match_id = matchlist['matches'][index - 1]['gameId']
+            timeline = self.__find_match_timeline(region, match_id)
+            if timeline is None:
+                await self.__bot.say('Match **{}** not found in region **{}**.'.format(match_id, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_match_timeline(region, match_id, timeline)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        else:
+            Gv.print_cache(str_key, True)
+        # Display Storage Structure
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='masteries', aliases=[],
+                 pass_context=True, help='Get champion masteries.')
+    async def masteries(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('masteries'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('masteries'))
+            return
+        name = inputs[0]
+
+        # Get and Check Region
+        _, region, others = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+
+        # Get and Check Amount
+        _, amount, others = self.__parse_args(others, 'a', True)
+        if amount is None:
+            amount = 10
+        elif int(amount) < 1:
+            await self.__bot.say('Amount should be at least 1.')
+            amount = 1
+        else:
+            amount = int(amount)
+
+        # Check Desc.
+        use_asc, _, _ = self.__parse_args(others, 'asc')
+
+        # Check Cache
+        str_key = (region, name, Gv.CacheKeyType.STR_LOL_MASTERY)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            Gv.print_cache(str_key, False)
+            # Get Data via API
+            player = self.__find_player(region, name)
+            if player is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            masteries = self.__find_masteries(region, player['id'])
+            if masteries is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_masteries(region, masteries, player)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        else:
+            Gv.print_cache(str_key, True)
+        # Display Storage Structure
+        for s in cached.to_str(amount, use_asc):
+            await self.__bot.say('```{}```'.format(s))
     # endregion
 
     # region Retrieval, API Calls
@@ -306,6 +433,42 @@ class DiscoLoLCog:
                 match = self.__watcher.match.by_id(region, match_id)
                 self.__cache.add(api_key, match, CacheManager.CacheType.API)
                 return match
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                return None
+        else:
+            Gv.print_cache(api_key, True)
+            return cached
+
+    def __find_match_timeline(self, region, match_id):
+        if region is None or match_id is None:
+            return None
+        api_key = (region, match_id, Gv.CacheKeyType.API_LOL_MATCH_TIMELINE)
+        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
+        if cached is None:
+            Gv.print_cache(api_key, False)
+            try:
+                match = self.__watcher.match.timeline_by_match(region, match_id)
+                self.__cache.add(api_key, match, CacheManager.CacheType.API)
+                return match
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                return None
+        else:
+            Gv.print_cache(api_key, True)
+            return cached
+
+    def __find_masteries(self, region, player_id):
+        if region is None or player_id is None:
+            return None
+        api_key = (region, player_id, Gv.CacheKeyType.API_LOL_MASTERY)
+        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
+        if cached is None:
+            Gv.print_cache(api_key, False)
+            try:
+                masteries = self.__watcher.champion_mastery.by_summoner(region, player_id)
+                self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
+                return masteries
             except requests.HTTPError as e:
                 self.__print_http_error(e)
                 return None
@@ -542,6 +705,152 @@ class DiscoLoLCog:
             stats[rune_string], [style, style_results],
             rune_results['name'], rune_vars
         )
+
+    def __create_match_timeline(self, region, match_id, timeline):
+        match = self.__find_match(region, match_id)
+        teams = self.__create_match_timeline_team(timeline, match)
+        num_of_players = len(timeline['frames'][0]['participantFrames'])
+        events = []
+        for f in timeline['frames']:
+            for e in f['events']:
+                event = self.__create_match_timeline_event(e, teams, num_of_players)
+                if event is not None:
+                    events.append(event)
+
+        return LoLMatchTimeline.LoLMatchTimeline(
+            region, match_id, teams, events
+        )
+
+    def __create_match_timeline_team(self, timeline, match):
+        players_per_team = len(timeline['frames'][0]['participantFrames']) // 2
+        players = []
+        for p in match['participantIdentities']:
+            champion_id = match['participants'][p['participantId'] - 1]['championId']
+            champion_results = self.__database.select_lol_champion(champion_id)
+            players.append([p['player']['summonerName'], champion_results])
+
+        return [
+            LoLMatchTimeline.LoLMatchTimelineTeam(
+                100, match['teams'][0]['win'] == 'Win', players[:players_per_team]
+            ),
+            LoLMatchTimeline.LoLMatchTimelineTeam(
+                200, match['teams'][1]['win'] == 'Win', players[players_per_team:]
+            )
+        ]
+
+    def __create_match_timeline_event(self, event, teams_pair, num_of_players):
+        allowed_types = ['CHAMPION_KILL', 'BUILDING_KILL', 'ELITE_MONSTER_KILL']
+        if event['type'] not in allowed_types:
+            return None
+        if event['type'] == allowed_types[0]:
+            return self.__create_match_timeline_event_champion_kill(
+                event, teams_pair, num_of_players
+            )
+        elif event['type'] == allowed_types[1]:
+            return self.__create_match_timeline_event_building_kill(
+                event, teams_pair, num_of_players
+            )
+        else:
+            return self.__create_match_timeline_event_elite_monster_kill(
+                event, teams_pair, num_of_players
+            )
+
+    @staticmethod
+    def __create_match_timeline_event_champion_kill(event, teams_pair, num_of_players):
+        team = 200 if event['victimId'] <= num_of_players // 2 else 100
+        if team == 100:
+            allies = teams_pair[0]
+            enemies = teams_pair[1]
+        else:
+            allies = teams_pair[1]
+            enemies = teams_pair[0]
+        if event['killerId'] > 0:
+            killer = allies.player_pair_list[Lv.player_to_in_team(event['killerId'],
+                                                                  num_of_players)][1]
+        else:
+            killer = 'Team {}'.format(int(team / 100))
+        victim = enemies.player_pair_list[Lv.player_to_in_team(event['victimId'],
+                                                               num_of_players)][1]
+
+        assists = []
+        for a in event['assistingParticipantIds']:
+            assists.append(allies.player_pair_list[
+                               Lv.player_to_in_team(a, num_of_players)][1])
+        return LoLMatchTimeline.LoLMatchTimelineEvent(
+            event['type'], event['timestamp'], None, killer, victim, assists, team
+        )
+
+    @staticmethod
+    def __create_match_timeline_event_building_kill(event, teams_pair, num_of_players):
+        team = 200 if event['teamId'] == 100 else 100
+        if team == 100:
+            allies = teams_pair[0]
+        else:
+            allies = teams_pair[1]
+        if event['killerId'] > 0:
+            killer = allies.player_pair_list[Lv.player_to_in_team(event['killerId'],
+                                                                  num_of_players)][1]
+        else:
+            killer = 'Team {}'.format(int(team / 100))
+
+        if event['buildingType'] == 'INHIBITOR_BUILDING':
+            description = '{} {}'.format(Lv.events_string_map[event['laneType']],
+                                         Lv.events_string_map[event['buildingType']])
+        elif event['towerType'] == 'NEXUS_TURRET':
+            description = Lv.events_string_map[event['towerType']]
+        else:
+            description = '{} {}'.format(Lv.events_string_map[event['laneType']],
+                                         Lv.events_string_map[event['towerType']])
+
+        assists = []
+        for a in event['assistingParticipantIds']:
+            assists.append(allies.player_pair_list[
+                               Lv.player_to_in_team(a, num_of_players)][1])
+        return LoLMatchTimeline.LoLMatchTimelineEvent(
+            event['type'], event['timestamp'], description, killer, None, assists, team
+        )
+
+    @staticmethod
+    def __create_match_timeline_event_elite_monster_kill(event, teams_pair, num_of_players):
+        team = 100 if event['killerId'] <= num_of_players // 2 else 200
+        if team == 100:
+            allies = teams_pair[0]
+        else:
+            allies = teams_pair[1]
+        if event['killerId'] > 0:
+            killer = allies.player_pair_list[Lv.player_to_in_team(event['killerId'],
+                                                                  num_of_players)][1]
+        else:
+            killer = 'Team {}'.format(int(team / 100))
+
+        if event['monsterType'] == 'DRAGON':
+            description = Lv.events_string_map[event['monsterSubType']]
+        else:
+            description = Lv.events_string_map[event['monsterType']]
+
+        return LoLMatchTimeline.LoLMatchTimelineEvent(
+            event['type'], event['timestamp'], description, killer, None, [], team
+        )
+
+    def __create_masteries(self, region, masteries, player):
+        mastery_list = []
+        for m in masteries:
+            mastery = self.__create_masteries_mastery(m)
+            mastery_list.append(mastery)
+
+        return LoLMasteries.LoLMasteries(
+            region, player['name'], player['id'], mastery_list
+        )
+
+    def __create_masteries_mastery(self, mastery_info):
+        champion_results = self.__database.select_lol_champion(mastery_info['championId'])
+        return LoLMasteries.LoLMasteriesMastery(
+            [mastery_info['championId'], champion_results],
+            mastery_info['championLevel'], mastery_info['championPoints'],
+            mastery_info['championPointsSinceLastLevel'],
+            mastery_info['championPointsUntilNextLevel'],
+            mastery_info['chestGranted'], mastery_info['tokensEarned']
+        )
     # endregion
 
     # region Parsing
@@ -613,8 +922,17 @@ class DiscoLoLCog:
             return 'matchlist *name* [{}r{}*region*] [{]a{}*amount* 1-20]'\
                 .format(prefix, value_prefix, prefix, value_prefix)
         elif command == 'match':
-            return 'match *id* [{}r{}*region*] [{}rd] [{}d] [{}t]'\
+            return 'match *id*|*name* *index* [{}r{}*region*] [{}rd] [{}d] [{}t]'\
                 .format(prefix, value_prefix, prefix, prefix, prefix)
+        elif command == 'timeline':
+            return 'timeline *id*|*name* *index* [{}r{}*region*]' \
+                .format(prefix, value_prefix)
+        elif command == 'buildorder':
+            return 'buildorder *name* *id*|*name* *index* [{}r{}*region*]' \
+                .format(prefix, value_prefix, prefix, prefix, prefix)
+        elif command == 'masteries':
+            return 'masteries *name* [{}r{}*region*] [{}a{}*amount* 1+] [{}asc]' \
+                .format(prefix, value_prefix, prefix, value_prefix, prefix)
         else:
             return ''
 

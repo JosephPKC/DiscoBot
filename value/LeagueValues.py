@@ -54,6 +54,24 @@ roles_string_map = {
     'SOLO': 'Solo',
     'DUO': 'Duo'
 }
+
+events_string_map = {
+    'NEXUS_TURRET': 'Nexus Tower',
+    'MID_LANE': 'Middle Lane',
+    'BOT_LANE': 'Bottom Lane',
+    'TOP_LANE': 'Top Lane',
+    'INHIBITOR_BUILDING': 'Inhibitor',
+    'INNER_TURRET': 'Inner Tower',
+    'OUTER_TURRET': 'Outer Tower',
+    'BASE_TURRET': 'Inhibitor Tower',
+    'WATER_DRAGON': 'Ocean Dragon',
+    'AIR_DRAGON': 'Cloud Dragon',
+    'EARTH_DRAGON': 'Mountain Dragon',
+    'FIRE_DRAGON': 'Infernal Dragon',
+    'BARON_NASHOR': 'Baron',
+    'RIFT_HERALD': 'Rift Herald',
+    'VILE_MAW': 'Vile\'Maw'
+}
 # endregion
 
 # region Lists
@@ -64,4 +82,9 @@ queues_list = [k for k in queues_string_map.keys()]
 # region Misc
 optional_region_suffix = '1'
 # endregion
+# endregion
+
+# region Methods
+def player_to_in_team(index, num_of_players):
+    return index % (num_of_players // 2) - 1
 # endregion
