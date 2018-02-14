@@ -130,7 +130,8 @@ spell_effect_burn_map = {
     'spelldamage': 'AP',
     'bonusattackdamage': 'Bonus AD',
     'health': 'HP',
-    'bonushealth': 'Bonus HP'
+    'bonushealth': 'Bonus HP',
+    '@special.dariusr3': ''
 }
 # endregion
 

@@ -803,7 +803,7 @@ class DiscoLoLCog:
 
     def __find_masteries(self, region, player_id):
         params = [region, player_id]
-        api_key = (region, player_id, Gv.CacheKeyType.API_LOL)
+        api_key = (region, player_id, Gv.CacheKeyType.API_LOL_MASTERY)
 
         def api_function(): return self.__watcher.champion_mastery.by_summoner(
             region, player_id)
@@ -1333,7 +1333,8 @@ class DiscoLoLCog:
             data['passive']['name'], description, None, None, None
         ))
         for s in data['spells']:
-            description = self.__parse_spell_description(s['tooltip'], s['effectBurn'], s['vars'])
+            description = s['tooltip'].replace('{{ castrange }}', s['rangeBurn'])
+            description = self.__parse_spell_description(description, s['effectBurn'], s['vars'])
             cost = s['resource'].replace('{{ cost }}', s['costBurn'])
             cost = self.__parse_spell_description(cost, s['effectBurn'], s['vars'])
             spells.append(LoLChampion.LoLChampionSpell(
@@ -1413,13 +1414,14 @@ class DiscoLoLCog:
         description = re.sub('<br>', '\n\t', description)
         description = re.sub('<br /><br />', '\n\t', description)
         description = re.sub('<br />', '\n\t', description)
-        description = re.sub('</span>', '', description)
 
-        description = re.sub('<[a-zA-Z0-9]*>', '', description)
-        description = re.sub('</[a-zA-Z0-9]*>', '', description)
-        description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
-        description = re.sub('<span class=\"[a-zA-Z0-9]*\">', '', description)
-        description = re.sub('<span class="size\d* color[a-zA-Z0-9]*">\d*', '', description)
+        description = re.sub('<[a-zA-Z0-9 #=\'\"/]*>', '', description)
+        # description = re.sub('</[a-zA-Z0-9]*>', '', description)
+        # description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
+        # description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
+        # description = re.sub('<span class=\"[a-zA-Z0-9]*\">', '', description)
+        # description = re.sub('<span class="size\d* color[a-zA-Z0-9]*">\d*', '', description)
+
 
         for i, e in enumerate(effects):
             if e is not None:
