@@ -34,7 +34,7 @@ bot = commands.Bot(command_prefix=prefix, description=blurb)
 # Create the managers
 cache = CacheManager.CacheManager(Gv.db_freshness, Gv.api_freshness, Gv.str_freshness)
 database = DatabaseManager.DatabaseManager(Gv.lol_db_path, cache)
-file = FileManager.FileManager(Gv.general_path_prefix)
+file = FileManager.FileManager()
 
 # Prepare the cogs
 cogs = [

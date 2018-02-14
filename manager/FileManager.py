@@ -1,5 +1,6 @@
 # region Imports
 import fnmatch
+import json
 import os
 import requests
 
@@ -8,8 +9,9 @@ from value import GeneralValues as Gv
 
 
 class FileManager:
-    def __init__(self, path):
-        self.path = path
+    def __init__(self):
+        # Nothing
+        return
 
     def find_file(self, file_type, name, pattern):
         if not isinstance(file_type, Gv.FileType):
@@ -28,5 +30,12 @@ class FileManager:
         with open(self.__create_path(file_type, name), 'wb') as file:
             file.write(requests.get(url).content)
 
+    def load_json(self, path):
+        with open(self.__create_path(Gv.FileType.JSON, path), 'r', encoding='utf-8') as file:
+            j_file = json.loads(file.read())
+        return j_file
+
     def __create_path(self, file_type, name):
-        return self.path + Gv.file_type_path_map[file_type] + name
+        return Gv.general_path_prefix + Gv.file_type_path_map[file_type] + name
+
+

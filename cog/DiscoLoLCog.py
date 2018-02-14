@@ -1,9 +1,7 @@
 # region Imports
-import fnmatch
-import json
-import os
 import re
 import requests
+import string
 import sys
 
 from discord.ext import commands
@@ -21,10 +19,10 @@ except ImportError:
     sys.exit(2)
 
 from value import GeneralValues as Gv, LeagueValues as Lv
-from manager import CacheManager, DatabaseManager, FileManager
+from manager import CacheManager, DatabaseManager, FileManager, DataDragonManager
 from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed, \
     LoLMatchTimeline, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
-    LoLStatus, LoLMatchSpectator
+    LoLStatus, LoLMatchSpectator, LoLChampion
 # endregion
 
 
@@ -41,9 +39,11 @@ class DiscoLoLCog:
         self.__file = file
         self.__cache = cache
         self.__database = database
-        self.__current_patch = self.__get_latest_patch()
+        self.__data_dragon = DataDragonManager.DataDragonManager(self.__file, self.__cache)
 
     # region Commands
+
+    # Commands that use Riotwatcher and Riot's API
     @commands.group(pass_context=True)
     async def lol(self, ctx):
         # The command group for all lol-related commands
@@ -100,7 +100,8 @@ class DiscoLoLCog:
             cached = self.__create_player(region, player, ranks)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
-        await self.__bot.say('{}{}{}{}.png'.format(Lv.base_url, self.__current_patch,
+        await self.__bot.say('{}{}{}{}.png'.format(Lv.base_url,
+                                                   self.__data_dragon.get_current_patch(),
                                                    Lv.profile_icon_url_part,
                                                    cached.icon))
         for s in cached.to_str():
@@ -539,7 +540,6 @@ class DiscoLoLCog:
             await self.__bot.say(self.__get_command_usage('spectate'))
             return
         name = inputs[0]
-        _, args = self.__parse_inputs_and_args(cmd_input)
         # Get and Check Region
         _, region, others = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
@@ -572,6 +572,95 @@ class DiscoLoLCog:
         await self.__bot.send_file(ctx.message.channel, file)
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
+
+    # Commands that use Data Dragon URLs
+    @lol.command(name='champion', aliases=[],
+                 pass_context=True, help='Get champion info.')
+    async def champion(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('champion'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('champion'))
+            return
+        name = inputs[0]
+        # Get and Check Flags
+        use_lore, _, others = self.__parse_args(args, 'l', True)
+        use_tips, _, others = self.__parse_args(args, 't', True)
+        use_art, _, _ = self.__parse_args(args, 'a', True)
+
+        # Check Cache
+        str_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION)
+        str_arts_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION_ART)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        arts = self.__cache.retrieve(str_arts_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            json_name = self.__database.select_lol_champion_json_inverted(name)
+            if json_name is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            champion = self.__data_dragon.get_champion(json_name)
+            if champion is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_champion(champion[0])
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+            if arts is None:
+                arts = champion[1]
+                self.__cache.add(str_arts_key, arts, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        for s in cached.to_str(use_lore, use_tips):
+            await self.__bot.say('```{}```'.format(s))
+        await self.__bot.say('Official: {}\n'
+                             .format( cached.official_url))
+        if use_art:
+            for a in arts:
+                title = a[0]
+                if title == 'default':
+                    title = 'Default'
+                await self.__bot.say('{}\n{}\n'.format(title, a[1]))
+
+    @lol.command(name='skins', aliases=[],
+                 pass_context=True, help='Get champion skin arts.')
+    async def skins(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('skins'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('skins'))
+            return
+        name = inputs[0]
+
+        # Check Cache
+        str_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION_ART)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            json_name = self.__database.select_lol_champion_json_inverted(name)
+            if json_name is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            champion = self.__data_dragon.get_champion(json_name)
+            if champion is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            # Create and Cache Storage Structure
+            cached = champion[1]
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        for a in cached:
+            title = a[0]
+            if title == 'default':
+                title = 'Default'
+            await self.__bot.say('{}\n{}\n'.format(title, a[1]))
     # endregion
 
     # region Command Helpers
@@ -622,7 +711,8 @@ class DiscoLoLCog:
         match_id = matchlist['matches'][index - 1]['gameId']
         return match_id
 
-    def __create_spectate_bat(self, region, encryption_key, match_id):
+    @staticmethod
+    def __create_spectate_bat(region, encryption_key, match_id):
         name = 'spectate_{}.bat'.format(match_id)
         with open('data/spectate/{}'.format(name), 'w')as file:
             file.write(
@@ -1224,6 +1314,39 @@ class DiscoLoLCog:
             team_id, players
         )
 
+    def __create_champion(self, data):
+        stats = data['stats']
+        champ_stats = LoLChampion.LoLChampionStats(
+            stats['movespeed'], stats['attackrange'], [stats['hp'], stats['hpperlevel']],
+            [stats['mp'], stats['mpperlevel']], [stats['armor'], stats['armorperlevel']],
+            [stats['spellblock'], stats['spellblockperlevel']],
+            [stats['hpregen'], stats['hpregenperlevel']],
+            [stats['mpregen'], stats['mpregenperlevel']],
+            [stats['crit'], stats['critperlevel']],
+            [stats['attackdamage'], stats['attackdamageperlevel']],
+            [stats['attackspeedoffset'], stats['attackspeedperlevel']]
+        )
+
+        spells = []
+        description = self.__parse_spell_description(data['passive']['description'], [], [])
+        spells.append(LoLChampion.LoLChampionSpell(
+            data['passive']['name'], description, None, None, None
+        ))
+        for s in data['spells']:
+            description = self.__parse_spell_description(s['tooltip'], s['effectBurn'], s['vars'])
+            cost = s['resource'].replace('{{ cost }}', s['costBurn'])
+            cost = self.__parse_spell_description(cost, s['effectBurn'], s['vars'])
+            spells.append(LoLChampion.LoLChampionSpell(
+                s['name'], description, s['cooldownBurn'], cost, s['rangeBurn']
+            ))
+
+        official = Lv.base_official_champion_url + data['id']
+
+        return LoLChampion.LoLChampion(
+            data['id'], data['title'], data['key'], data['lore'],
+            [data['allytips'], data['enemytips']], data['tags'], champ_stats, spells,
+            '', official
+        )
     # endregion
 
     # region Parsing
@@ -1283,11 +1406,30 @@ class DiscoLoLCog:
             team_index = 2
         return player_index, team_index
 
-    def __get_latest_patch(self):
-        self.__file.download_file(Gv.FileType.JSON, Lv.version_file, Lv.version_url)
-        with open(Lv.version_path, 'r', encoding='utf-8') as file:
-            json_file = json.loads(file.read())
-        return json_file[0]
+    @staticmethod
+    def __parse_spell_description(spell, effects, vars,):
+        description = spell
+        description = re.sub('<br><br>', '\n\t', description)
+        description = re.sub('<br>', '\n\t', description)
+        description = re.sub('<br /><br />', '\n\t', description)
+        description = re.sub('<br />', '\n\t', description)
+        description = re.sub('</span>', '', description)
+
+        description = re.sub('<[a-zA-Z0-9]*>', '', description)
+        description = re.sub('</[a-zA-Z0-9]*>', '', description)
+        description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
+        description = re.sub('<span class=\"[a-zA-Z0-9]*\">', '', description)
+        description = re.sub('<span class="size\d* color[a-zA-Z0-9]*">\d*', '', description)
+
+        for i, e in enumerate(effects):
+            if e is not None:
+                description = description.replace('{{{{ e{} }}}}'.format(i), e)
+        for v in vars:
+            description = description. \
+                replace('{{{{ {} }}}}'.format(v['key']),
+                        '{} {}'.format(str(v['coeff']), Lv.spell_effect_burn_map[v['link']]))
+        description = re.sub('{{ [a-z][0-9]?\*?[0-9]+ }}', 'X (Based on In-Game Data)', description)
+        return description
 
     @staticmethod
     def __get_command_usage(command, prefix=Gv.argument_prefix, value_prefix=Gv.argument_value_prefix):
@@ -1324,6 +1466,15 @@ class DiscoLoLCog:
         elif command == 'status':
             return 'status [{}r{}*region*]' \
                 .format(prefix, value_prefix)
+        elif command == 'spectate':
+            return 'spectate *name* [{}r{}*region*]' \
+                .format(prefix, value_prefix)
+        elif command == 'champion':
+            return 'champion *name* [{}l] [{}t] [{}a]' \
+                .format(prefix, prefix, prefix)
+        elif command == 'skins':
+            return 'skins *name*' \
+                .format(prefix, prefix, prefix)
         else:
             return ''
 

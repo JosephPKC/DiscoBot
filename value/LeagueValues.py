@@ -2,12 +2,19 @@
 # region Files
 version_file = 'versions.json'
 version_path = 'data\\json\\versions.json'
+champions_path = 'champions\\'
 # endregion
 
 # region URLs
+base_official_champion_url = 'https://na.leagueoflegends.com/en/game-info/champions/'
+base_wiki_champion_url =  'http://leagueoflegends.wikia.com/wiki/'
+
 base_url = 'http://ddragon.leagueoflegends.com/cdn/'
 version_url = 'https://ddragon.leagueoflegends.com/api/versions.json'
+
 profile_icon_url_part = '/img/profileicon/'
+champion_url_part = '/data/en_US/champion/'
+champion_art_url_part = 'img/champion/splash/'
 # endregion
 
 # region Defaults
@@ -116,6 +123,14 @@ events_string_map = {
     'BARON_NASHOR': 'Baron',
     'RIFTHERALD': 'Rift Herald',
     'VILE_MAW': 'Vile\'Maw'
+}
+
+spell_effect_burn_map = {
+    'attackdamage': 'AD',
+    'spelldamage': 'AP',
+    'bonusattackdamage': 'Bonus AD',
+    'health': 'HP',
+    'bonushealth': 'Bonus HP'
 }
 # endregion
 
