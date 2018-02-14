@@ -1,5 +1,7 @@
 # region Imports
+import fnmatch
 import json
+import os
 import re
 import requests
 import sys
@@ -22,7 +24,7 @@ from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager
 from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed, \
     LoLMatchTimeline, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
-    LoLStatus
+    LoLStatus, LoLMatchSpectator
 # endregion
 
 
@@ -523,6 +525,53 @@ class DiscoLoLCog:
         # Display Storage Structure
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='spectate', aliases=[],
+                 pass_context=True, help='Get specate info.')
+    async def spectate(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('spectate'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('spectate'))
+            return
+        name = inputs[0]
+        _, args = self.__parse_inputs_and_args(cmd_input)
+        # Get and Check Region
+        _, region, others = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+
+        # Check Cache
+        str_key = (region, Gv.CacheKeyType.STR_LOL_SPECTATE)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            player = self.__find_player(region, name)
+            if player is None:
+                await self.__bot.say('Player **{}** not found in region **{}**.'
+                                     .format(name, region))
+                return
+            spectate = self.__find_spectate(region, player['id'])
+            if spectate is None:
+                await self.__bot.say('Player **{}** in region **{}** is not in a valid game.'
+                                     .format(name, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_spectate(region, spectate)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        await self.__bot.say('```Download and run this .bat file to spectate.```')
+        file = self.__create_spectate_bat(region, cached.encryption_key, cached.match_id)
+        await self.__bot.send_file(ctx.message.channel, file)
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
     # endregion
 
     # region Command Helpers
@@ -572,6 +621,22 @@ class DiscoLoLCog:
             return
         match_id = matchlist['matches'][index - 1]['gameId']
         return match_id
+
+    def __create_spectate_bat(self, region, encryption_key, match_id):
+        name = 'spectate_{}.bat'.format(match_id)
+        with open('data/spectate/{}'.format(name), 'w')as file:
+            file.write(
+                '@cd /d \"C:\\Riot Games\\League of Legends\\'
+                'RADS\\solutions\\lol_game_client_sln\\releases\\'
+                '0.0.1.202\\deploy\"\n'
+                '\tif exist \"League of Legends.exe\" (\n'
+                '\t\t@start \"\" \"League of Legends.exe\" \"8394\" \"LoLLauncher.exe\" \"\"'
+                ' \"spectator spectator.{}.lol.riotgames.com:80'
+                ' {} {} {}" "-UseRads\"\n'
+                '\t\tgoto :eof\n\t)\n'.format(Lv.regions_spectate_string_map[region],
+                                              encryption_key, match_id, region.upper())
+            )
+        return 'data/spectate/' + name
     # endregion
 
     # region Retrieval, API Calls
@@ -691,6 +756,13 @@ class DiscoLoLCog:
         api_key = (region, Gv.CacheKeyType.API_LOL_MASTERS)
 
         def api_function(): return self.__watcher.lol_status.shard_data(region)
+        return self.__find_api(params, api_key, api_function)
+
+    def __find_spectate(self, region, player_id):
+        params = [region, player_id]
+        api_key = (region, player_id, Gv.CacheKeyType.API_LOL_SPECTATE)
+
+        def api_function(): return self.__watcher.spectator.by_summoner(region, player_id)
         return self.__find_api(params, api_key, api_function)
     # endregion
 
@@ -1108,6 +1180,50 @@ class DiscoLoLCog:
         return LoLStatus.LoLStatus(
             region, status['name'], services
         )
+
+    def __create_spectate(self, region, spectate):
+        queue_results = self.__database.select_lol_queue(spectate['gameQueueConfigId'])
+        queue = '{}: {}{}'.format(queue_results['map'],
+                                  queue_results['mode'],
+                                  '' if queue_results['extra'] is None
+                                  else ' {}'.format(queue_results['extra']))
+
+        team1 = self.__create_spectate_team(spectate, 100)
+        team2 = self.__create_spectate_team(spectate, 200)
+
+        return LoLMatchSpectator.LoLMatchSpectator(
+            region, spectate['gameId'], queue, spectate['observers']['encryptionKey'],
+            spectate['gameLength'], [team1, team2]
+        )
+
+    def __create_spectate_team(self, spectate, team_id):
+        size = len(spectate['participants'])
+        if team_id == 100:
+            participants = spectate['participants'][:size // 2]
+        else:
+            participants = spectate['participants'][size // 2:]
+
+        players = []
+        for p in participants:
+            spell1 = self.__database.select_lol_summoner_spell(p['spell1Id'])
+            spell2 = self.__database.select_lol_summoner_spell(p['spell2Id'])
+            champion = self.__database.select_lol_champion(p['championId'])
+
+            runes = []
+            for r in p['perks']['perkIds']:
+                runes.append(self.__database.select_lol_rune(r)['name'])
+            primary = self.__database.select_lol_rune_style(p['perks']['perkStyle'])
+            secondary = self.__database.select_lol_rune_style(p['perks']['perkSubStyle'])
+
+            players.append(LoLMatchSpectator.LoLMatchSpectatorTeamPlayer(
+                p['summonerName'], [spell1, spell2], champion, p['bot'],
+                runes, primary, secondary
+            ))
+
+        return LoLMatchSpectator.LoLMatchSpectatorTeam(
+            team_id, players
+        )
+
     # endregion
 
     # region Parsing

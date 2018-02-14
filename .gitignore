@@ -96,4 +96,5 @@ ENV/
 # Project-Specific
 *.json
 *.png
+*.bat
 config.txt

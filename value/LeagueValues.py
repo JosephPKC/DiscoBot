@@ -48,6 +48,21 @@ regions_string_map = {
     'pbe1': 'PBE'
 }
 
+regions_spectate_string_map = {
+    'br1': 'br1',
+    'eun1': 'eun1',
+    'euw1': 'euw1',
+    'jp1': 'jp1',
+    'kr': 'kr',
+    'la1': 'la1',
+    'la2': 'la2',
+    'na1': 'na2',
+    'oc1': 'oc1',
+    'tr1': 'tr1',
+    'ru': 'ru',
+    'pbe1': 'pbe1'
+}
+
 queues_string_map = {
     'RANKED_FLEX_TT': 'Flex 3v3',
     'RANKED_FLEX_SR': 'Flex 5v5',

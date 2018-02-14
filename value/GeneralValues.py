@@ -33,6 +33,8 @@ class CacheKeyType(Enum):
     API_LOL_MASTERS = 18
     STR_LOL_STATUS = 19
     API_LOL_STATUS = 20
+    STR_LOL_SPECTATE = 21
+    API_LOL_SPECTATE = 22
 # endregion
 
 
