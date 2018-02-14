@@ -20,9 +20,9 @@ except ImportError:
 
 from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager
-from structure import LoLPlayer, LoLMatchList, \
-    LoLMatchDetailed, LoLMatchTimeline, LoLMasteries,\
-    LoLTotalMastery, LoLBestPlayers
+from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed, \
+    LoLMatchTimeline, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
+    LoLStatus
 # endregion
 
 
@@ -85,7 +85,6 @@ class DiscoLoLCog:
         str_key = (region, name, Gv.CacheKeyType.STR_LOL_PLAYER)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data Objects via API
             player = self.__find_player(region, name)
             if player is None:
@@ -98,8 +97,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_player(region, player, ranks)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         await self.__bot.say('{}{}{}{}.png'.format(Lv.base_url, self.__current_patch,
                                                    Lv.profile_icon_url_part,
@@ -127,29 +124,16 @@ class DiscoLoLCog:
             await self.__bot.say('Region **{}** not found.'.format(region))
             return
         region = region_temp
-
         # Get and Check Amount
         _, amount, _ = self.__parse_args(others, 'a', True)
-        if amount is None:
-            amount = Lv.default_amount_range_match_list[1]
-        elif int(amount) > Lv.default_amount_range_match_list[1]:
-            await self.__bot.say('Amount should be between {} and {}.'
-                                 .format(Lv.default_amount_range_match_list[0],
-                                         Lv.default_amount_range_match_list[1]))
-            amount = Lv.default_amount_range_match_list[1]
-        elif int(amount) < Lv.default_amount_range_match_list[0]:
-            await self.__bot.say('Amount should be between {} and {}.'
-                                 .format(Lv.default_amount_range_match_list[0],
-                                         Lv.default_amount_range_match_list[1]))
-            amount = Lv.default_amount_range_match_list[0]
-        else:
-            amount = int(amount)
+        amount = await self.__get_amount(amount, Lv.default_recent_matches_amount,
+                                         Lv.range_recent_matches[0],
+                                         Lv.range_recent_matches[1])
 
         # Check Cache
         str_key = (region, name, Gv.CacheKeyType.STR_LOL_MATCH_LIST)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data Objects via API
             player = self.__find_player(region, name)
             if player is None:
@@ -163,8 +147,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_match_list(region, player, matchlist)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str(amount):
             await self.__bot.say('```{}```'.format(s))
@@ -189,17 +171,10 @@ class DiscoLoLCog:
         else:
             match_id = None
             name = inputs[0]
-            index = inputs[1]
-            try:
-                index = int(index)
-            except ValueError:
-                await self.__bot.say('Second input must be a number.')
+            index = await self.__get_index(inputs[1])
+            if index is None:
+                await self.__bot.say('Second parameter must be a number.')
                 return
-            if index < Lv.default_amount_range_match_list[0]:
-                index = Lv.default_amount_range_match_list[0]
-            # elif index > Lv.default_amount_range_match_list[1]:
-            #     index = Lv.default_amount_range_match_list[1]
-
         # Get and Check Region
         _, region, others = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
@@ -211,32 +186,14 @@ class DiscoLoLCog:
         use_rune, _, others = self.__parse_args(others, 'rd')
         use_detail, _, others = self.__parse_args(others, 'd')
         use_timeline, _, _ = self.__parse_args(others, 't')
-
         # Get match ID
         if index is not None:
-            player = self.__find_player(region, name)
-            if player is None:
-                self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
-                return
-            if index > 20:
-                matchlist = self.__find_match_list_full(region, player['accountId'])
-                if index > matchlist['endIndex']:
-                    await self.__bot.say('Match **{}** not found for player **{}** in region **{}**.'
-                                         .format(index, player, region))
-                    return
-            else:
-                matchlist = self.__find_match_list(region, player['accountId'])
-            if matchlist is None:
-                await self.__bot.say(
-                    'Recent matches not found for player **{}** in region **{}**.'.format(name, region))
-                return
-            match_id = matchlist['matches'][index - 1]['gameId']
+            match_id = await self.__find_match_id(region, name, index)
 
         # Check Cache
         str_key = (region, match_id, Gv.CacheKeyType.STR_LOL_MATCH_DETAILED)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data Objects via API
 
             match = self.__find_match(region, match_id)
@@ -246,8 +203,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_match_detailed(region, match)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str(use_rune, use_detail, use_timeline):
             await self.__bot.say('```{}```'.format(s))
@@ -272,17 +227,10 @@ class DiscoLoLCog:
         else:
             match_id = None
             name = inputs[0]
-            index = inputs[1]
-            try:
-                index = int(index)
-            except ValueError:
-                await self.__bot.say('Second input must be a number.')
+            index = await self.__get_index(inputs[1])
+            if index is None:
+                await self.__bot.say('Second parameter must be a number.')
                 return
-            if index < Lv.default_amount_range_match_list[0]:
-                index = Lv.default_amount_range_match_list[0]
-            # elif index > Lv.default_amount_range_match_list[1]:
-            #     index = Lv.default_amount_range_match_list[1]
-
         # Get and Check Region
         _, region, _ = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
@@ -290,33 +238,14 @@ class DiscoLoLCog:
             await self.__bot.say('Region **{}** not found.'.format(region))
             return
         region = region_temp
-
         # Get match id
         if index is not None:
-            player = self.__find_player(region, name)
-            if player is None:
-                self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
-                return
-            if index > 20:
-                matchlist = self.__find_match_list_full(region, player['accountId'])
-                if index > matchlist['endIndex']:
-                    await self.__bot.say('Match **{}** not found for player **{}** in'
-                                         ' region **{}**.'
-                                         .format(index, player, region))
-                    return
-            else:
-                matchlist = self.__find_match_list(region, player['accountId'])
-            if matchlist is None:
-                await self.__bot.say(
-                    'Recent matches not found for player **{}** in region **{}**.'.format(name, region))
-                return
-            match_id = matchlist['matches'][index - 1]['gameId']
+            match_id = await self.__find_match_id(region, name, index)
 
         # Check Cache
         str_key = (region, match_id, Gv.CacheKeyType.STR_LOL_MATCH_TIMELINE)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data Objects via API
 
             timeline = self.__find_match_timeline(region, match_id)
@@ -326,8 +255,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_match_timeline(region, match_id, timeline)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
@@ -356,13 +283,9 @@ class DiscoLoLCog:
 
         # Get and Check Amount
         _, amount, others = self.__parse_args(others, 'a', True)
-        if amount is None:
-            amount = 10
-        elif int(amount) < 1:
-            await self.__bot.say('Amount should be at least 1.')
-            amount = 1
-        else:
-            amount = int(amount)
+        amount = await self.__get_amount(amount, Lv.default_recent_matches_amount,
+                                         Lv.range_masteries[0],
+                                         Lv.range_masteries[1])
 
         # Check Desc.
         use_asc, _, _ = self.__parse_args(others, 'asc')
@@ -371,7 +294,6 @@ class DiscoLoLCog:
         str_key = (region, name, Gv.CacheKeyType.STR_LOL_MASTERY)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data via API
             player = self.__find_player(region, name)
             if player is None:
@@ -384,8 +306,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_masteries(region, masteries, player)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str(amount, use_asc):
             await self.__bot.say('```{}```'.format(s))
@@ -404,7 +324,6 @@ class DiscoLoLCog:
             return
         name = inputs[0]
         champion = inputs[1]
-
         # Get and Check Region
         _, region, _ = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
@@ -417,7 +336,6 @@ class DiscoLoLCog:
         str_key = (region, name, champion, Gv.CacheKeyType.STR_LOL_MASTERY)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data via API
             player = self.__find_player(region, name)
             if player is None:
@@ -434,8 +352,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_masteries_mastery(mastery)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
@@ -453,7 +369,6 @@ class DiscoLoLCog:
             await self.__bot.say(self.__get_command_usage('totalmastery'))
             return
         name = inputs[0]
-
         # Get and Check Region
         _, region, _ = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
@@ -466,7 +381,6 @@ class DiscoLoLCog:
         str_key = (region, name, Gv.CacheKeyType.STR_LOL_TOTAL_MASTERY)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data via API
             player = self.__find_player(region, name)
             if player is None:
@@ -479,8 +393,6 @@ class DiscoLoLCog:
             # Create and Cache Storage Structure
             cached = self.__create_total_mastery(region, total_mastery, player)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
@@ -503,9 +415,93 @@ class DiscoLoLCog:
         except KeyError:
             await self.__bot.say('**{}** is invalid. Use either solo, solosr, flexsr, or flextt.'.format(queue))
             return
-
         # Get and Check Region
-        _, region, _ = self.__parse_args(args, 'r', True)
+        _, region, others = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+        # Get and Check Amount
+        _, amount, _ = self.__parse_args(others, 'a', True)
+        amount = await self.__get_amount(amount, Lv.default_best_players_amount,
+                                         Lv.range_best_players[0],
+                                         Lv.range_best_players[1])
+
+        # Check Cache
+        str_key = (region, queue_id, Gv.CacheKeyType.STR_LOL_CHALLENGERS)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            challengers = self.__find_challengers(region, queue_id)
+            if challengers is None:
+                await self.__bot.say(
+                    'Something went wrong fetching **{}** challengers in Region **{}**'
+                    .format(queue, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_best_players(region, queue_id, challengers)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        for s in cached.to_str(amount):
+            await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='masters', aliases=[],
+                 pass_context=True, help='Get all masters.')
+    async def masters(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('masters'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('masters'))
+            return
+        queue = inputs[0]
+        try:
+            queue_id = Lv.queues_string_map_inverted[queue.lower()]
+        except KeyError:
+            await self.__bot.say('**{}** is invalid. Use either solo, solosr, flexsr, or flextt.'.format(queue))
+            return
+        # Get and Check Region
+        _, region, others = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+        # Get and Check Amount
+        _, amount, _ = self.__parse_args(others, 'a', True)
+        amount = await self.__get_amount(amount, Lv.default_best_players_amount,
+                                         Lv.range_best_players[0],
+                                         Lv.range_best_players[1])
+
+        # Check Cache
+        str_key = (region, queue_id, Gv.CacheKeyType.STR_LOL_MASTERS)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            masters = self.__find_masters(region, queue_id)
+            if masters is None:
+                await self.__bot.say(
+                    'Something went wrong fetching **{}** challengers in Region **{}**'.format(queue, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_best_players(region, queue_id, masters)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        for s in cached.to_str(amount):
+            await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='status', aliases=[],
+                 pass_context=True, help='Get server status.')
+    async def status(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        # Parse into Inputs and Args
+        _, args = self.__parse_inputs_and_args(cmd_input)
+        # Get and Check Region
+        _, region, others = self.__parse_args(args, 'r', True)
         region_temp = self.__get_region(region)
         if region_temp is None:
             await self.__bot.say('Region **{}** not found.'.format(region))
@@ -513,115 +509,124 @@ class DiscoLoLCog:
         region = region_temp
 
         # Check Cache
-        str_key = (region, queue_id, Gv.CacheKeyType.STR_LOL_CHALLENGERS)
+        str_key = (region, Gv.CacheKeyType.STR_LOL_STATUS)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
-            Gv.print_cache(str_key, False)
             # Get Data via API
-            challengers = self.__find_challengers(region, queue_id)
-            if challengers is None:
-                await self.__bot.say('Something went wrong fetching **{}** challengers in Region **{}**'.format(queue, region))
+            status = self.__find_status(region)
+            if status is None:
+                await self.__bot.say('Region **{}** does not exist.'.format(region))
                 return
             # Create and Cache Storage Structure
-            cached = self.__create_best_players(region, queue_id, challengers)
+            cached = self.__create_status(region, status)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
-        else:
-            Gv.print_cache(str_key, True)
         # Display Storage Structure
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
     # endregion
 
-    # region Retrieval, API Calls
-    def __find_player(self, region, name):
-        if region is None or name is None:
+    # region Command Helpers
+    async def __get_amount(self, amount, default_value, min_value, max_value=-1):
+        error_string = 'Amount should be between {} and {}.'\
+            .format(min_value, max_value) \
+            if max_value > -1 \
+            else 'Amount should be at least {}.'\
+            .format(min_value)
+        if amount is None:
+            return default_value
+        elif 0 < max_value < int(amount):
+            await self.__bot.say(error_string)
+            return max_value
+        elif int(amount) < min_value:
+            await self.__bot.say(error_string)
+            return min_value
+        else:
+            return int(amount)
+
+    async def __get_index(self, index):
+        try:
+            index = int(index)
+            return await self.__get_amount(index, Lv.default_match_index,
+                                           Lv.range_match_index[0],
+                                           Lv.range_match_index[1])
+        except ValueError:
             return None
-        api_key = (region, name, Gv.CacheKeyType.API_LOL_PLAYER)
+
+    async def __find_match_id(self, region, name, index):
+        player = self.__find_player(region, name)
+        if player is None:
+            self.__bot.say('Player **{}** not found in region **{}**.'.format(name, region))
+            return
+        if index > 20:
+            matchlist = self.__find_match_list_full(region, player['accountId'])
+            if index > matchlist['endIndex']:
+                await self.__bot.say('Match **{}** not found for player **{}** in'
+                                     ' region **{}**.'
+                                     .format(index, player, region))
+                return
+        else:
+            matchlist = self.__find_match_list(region, player['accountId'])
+        if matchlist is None:
+            await self.__bot.say(
+                'Recent matches not found for player **{}** in region **{}**.'.format(name, region))
+            return
+        match_id = matchlist['matches'][index - 1]['gameId']
+        return match_id
+    # endregion
+
+    # region Retrieval, API Calls
+    def __find_api(self, params, api_key, api_function):
+        for p in params:
+            if p is None:
+                return None
         cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
         if cached is None:
-            Gv.print_cache(api_key, False)
             try:
-                player = self.__watcher.summoner.by_name(region, name)
-                self.__cache.add(api_key, player, CacheManager.CacheType.API)
-                return player
+                new_data = api_function()
+                self.__cache.add(api_key, new_data, CacheManager.CacheType.API)
+                return new_data
             except requests.HTTPError as e:
                 self.__print_http_error(e)
                 return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+        return cached
+
+    def __find_player(self, region, name):
+        params = [region, name]
+        api_key = (region, name, Gv.CacheKeyType.API_LOL_PLAYER)
+
+        def api_function(): return self.__watcher.summoner.by_name(region, name)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_ranks(self, region, player_id):
-        if region is None or player_id is None:
-            return None
+        params = [region, player_id]
         api_key = (region, player_id, Gv.CacheKeyType.API_LOL_RANKS)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                ranks = self.__watcher.league.positions_by_summoner(region, player_id)
-                self.__cache.add(api_key, ranks, CacheManager.CacheType.API)
-                return ranks
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+
+        def api_function(): return self.__watcher.league.positions_by_summoner(
+            region, player_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_match_list(self, region, account_id):
-        if region is None or account_id is None:
-            return None
-        api_key = (region, account_id, Gv.CacheKeyType.API_LOL_MATCH_LIST_FULL)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                matchlist = self.__watcher.match.matchlist_by_account_recent(region, account_id)
-                self.__cache.add(api_key, matchlist, CacheManager.CacheType.API)
-                return matchlist
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+        params = [region, account_id]
+        api_key = (region, account_id, Gv.CacheKeyType.API_LOL_MATCH_LIST)
+
+        def api_function(): return self.__watcher.match.matchlist_by_account_recent(
+            region, account_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_match_list_full(self, region, account_id):
-        if region is None or account_id is None:
-            return None
-        api_key = (region, account_id, Gv.CacheKeyType.API_LOL_MATCH_LIST)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                matchlist = self.__watcher.match.matchlist_by_account(region, account_id)
-                self.__cache.add(api_key, matchlist, CacheManager.CacheType.API)
-                return matchlist
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+        params = [region, account_id]
+        api_key = (region, account_id, Gv.CacheKeyType.API_LOL_MATCH_LIST_FULL)
+
+        def api_function(): return self.__watcher.match.matchlist_by_account(
+            region, account_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_match(self, region, match_id):
-        if region is None or match_id is None:
-            return None
+        params = [region, match_id]
         api_key = (region, match_id, Gv.CacheKeyType.API_LOL_MATCH)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                match = self.__watcher.match.by_id(region, match_id)
-                self.__cache.add(api_key, match, CacheManager.CacheType.API)
-                return match
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+
+        def api_function(): return self.__watcher.match.by_id(region, match_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_match_timeline(self, region, match_id):
         if region is None or match_id is None:
@@ -642,76 +647,51 @@ class DiscoLoLCog:
             return cached
 
     def __find_masteries(self, region, player_id):
-        if region is None or player_id is None:
-            return None
-        api_key = (region, player_id, Gv.CacheKeyType.API_LOL_MASTERY)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                masteries = self.__watcher.champion_mastery.by_summoner(region, player_id)
-                self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
-                return masteries
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+        params = [region, player_id]
+        api_key = (region, player_id, Gv.CacheKeyType.API_LOL)
+
+        def api_function(): return self.__watcher.champion_mastery.by_summoner(
+            region, player_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_mastery(self, region, player_id, champion_id):
-        if region is None or player_id is None or champion_id is None:
-            return None
-        api_key = (region, player_id, champion_id, Gv.CacheKeyType.API_LOL_MASTERY)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                masteries = self.__watcher.champion_mastery.by_summoner_by_champion(region, player_id, champion_id)
-                self.__cache.add(api_key, masteries, CacheManager.CacheType.API)
-                return masteries
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+        params = [region, player_id, champion_id]
+        api_key = (region, player_id, champion_id,
+                   Gv.CacheKeyType.API_LOL_MASTERY)
+
+        def api_function(): return self.__watcher.champion_mastery.by_summoner_by_champion(
+            region, player_id, champion_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_total_mastery(self, region, player_id):
-        if region is None or player_id is None:
-            return None
+        params = [region, player_id]
         api_key = (region, player_id, Gv.CacheKeyType.API_LOL_TOTAL_MASTERY)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                score = self.__watcher.champion_mastery.scores_by_summoner(region, player_id)
-                self.__cache.add(api_key, score, CacheManager.CacheType.API)
-                return score
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+
+        def api_function(): return self.__watcher.champion_mastery.scores_by_summoner(
+            region, player_id)
+        return self.__find_api(params, api_key, api_function)
 
     def __find_challengers(self, region, queue_id):
-        if region is None or queue_id is None:
-            return None
+        params = [region, queue_id]
         api_key = (region, queue_id, Gv.CacheKeyType.API_LOL_CHALLENGERS)
-        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
-        if cached is None:
-            Gv.print_cache(api_key, False)
-            try:
-                challengers = self.__watcher.league.challenger_by_queue(region, queue_id)
-                self.__cache.add(api_key, challengers, CacheManager.CacheType.API)
-                return challengers
-            except requests.HTTPError as e:
-                self.__print_http_error(e)
-                return None
-        else:
-            Gv.print_cache(api_key, True)
-            return cached
+
+        def api_function(): return self.__watcher.league.challenger_by_queue(
+            region, queue_id)
+        return self.__find_api(params, api_key, api_function)
+
+    def __find_masters(self, region, queue_id):
+        params = [region, queue_id]
+        api_key = (region, queue_id, Gv.CacheKeyType.API_LOL_MASTERS)
+
+        def api_function(): return self.__watcher.league.masters_by_queue(region, queue_id)
+        return self.__find_api(params, api_key, api_function)
+
+    def __find_status(self, region):
+        params = [region]
+        api_key = (region, Gv.CacheKeyType.API_LOL_MASTERS)
+
+        def api_function(): return self.__watcher.lol_status.shard_data(region)
+        return self.__find_api(params, api_key, api_function)
     # endregion
 
     # region Factory
@@ -739,10 +719,10 @@ class DiscoLoLCog:
             if match is None:
                 print('Match {} not found.'.format(m['gameId']))
                 continue
-            matches.append(self.__create_match(region, player, match, m))
+            matches.append(self.__create_match_list_match(region, player, match, m))
         return LoLMatchList.LoLMatchList(region, player['name'], player['id'], player['accountId'], matches)
 
-    def __create_match(self, region, player, match, match_details):
+    def __create_match_list_match(self, region, player, match, match_details):
         queue_results = self.__database.select_lol_queue(match_details['queue'], True, True)
         if queue_results is None:
             print('Queue Not Found: {}.'.format(match_details['queue']))
@@ -771,6 +751,7 @@ class DiscoLoLCog:
                                      [match_details['queue'], queue],
                                      [match_details['season'], season_results],
                                      match_details['role'], match_details['lane'],
+                                     match['gameDuration'],
                                      [player_stats['kills'], player_stats['deaths'],
                                       player_stats['assists']],
                                      player_stats['totalMinionsKilled'],
@@ -1088,7 +1069,8 @@ class DiscoLoLCog:
             mastery_info['chestGranted'], mastery_info['tokensEarned']
         )
 
-    def __create_total_mastery(self, region, total_mastery, player):
+    @staticmethod
+    def __create_total_mastery(region, total_mastery, player):
         return LoLTotalMastery.LoLTotalMastery(
             region, player['name'], player['id'], total_mastery
         )
@@ -1097,24 +1079,46 @@ class DiscoLoLCog:
         players = []
         for p in best_players['entries']:
             players.append(self.__create_best_players_player(p))
+        players = sorted(players, key=lambda x: -x.lp)
         return LoLBestPlayers.LoLBestPlayers(
             region, best_players['tier'], queue_id, best_players['name'], players
         )
 
-    def __create_best_players_player(self, entry):
+    @staticmethod
+    def __create_best_players_player(entry):
         return LoLBestPlayers.LoLBestPlayersPlayer(
             entry['playerOrTeamId'], entry['playerOrTeamName'],
             entry['leaguePoints'], entry['rank'], entry['wins'], entry['losses'],
             entry['veteran'], entry['inactive'], entry['freshBlood'], entry['hotStreak']
+        )
+
+    @staticmethod
+    def __create_status(region, status):
+        services = []
+        for s in status['services']:
+            incidents = []
+            for i in s['incidents']:
+                for u in i['updates']:
+                    incidents.append(LoLStatus.LoLStatusServiceIncident(
+                        u['content']
+                    ))
+            services.append(LoLStatus.LoLStatusService(
+                s['name'], s['status'], incidents
+            ))
+        return LoLStatus.LoLStatus(
+            region, status['name'], services
         )
     # endregion
 
     # region Parsing
     @staticmethod
     def __parse_inputs_and_args(inp, arg_prefix=Gv.argument_prefix):
-        splits = re.split(' ?{}'.format(arg_prefix), inp)
-        inp_splits = re.split(' ? ', splits[0])
-        return inp_splits, splits[1:]
+        try:
+            splits = re.split(' ?{}'.format(arg_prefix), inp)
+            inp_splits = re.split(' ? ', splits[0])
+            return inp_splits, splits[1:]
+        except TypeError:
+            return None, []
 
     @staticmethod
     def __parse_args(args, arg, has_value=False,
@@ -1196,7 +1200,13 @@ class DiscoLoLCog:
             return 'totalmastery *name* [{}r{}*region*]' \
                 .format(prefix, value_prefix)
         elif command == 'challengers':
-            return 'challengers *queue* [{}r{}*region*]' \
+            return 'challengers *queue* [{}r{}*region*] [{}a{}*amount*]' \
+                .format(prefix, value_prefix, prefix, value_prefix)
+        elif command == 'masters':
+            return 'masters *queue* [{}r{}*region*] [{}a{}*amount*]' \
+                .format(prefix, value_prefix, prefix, value_prefix)
+        elif command == 'status':
+            return 'status [{}r{}*region*]' \
                 .format(prefix, value_prefix)
         else:
             return ''

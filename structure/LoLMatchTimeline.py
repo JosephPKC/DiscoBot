@@ -67,7 +67,7 @@ class LoLMatchTimeline:
         string = ''
         for i, e in enumerate(self.events_list):
             string += '{}\n'.format(e.to_str(depth + 1))
-            if i % 10 >= 9:
+            if i % Lv.split_match_timeline >= Lv.split_match_timeline - 1:
                 strings.append(string)
                 string = ''
             elif len(self.events_list) - i == 1:

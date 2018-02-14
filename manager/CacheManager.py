@@ -2,6 +2,8 @@
 import datetime
 
 from enum import Enum
+
+from value import GeneralValues as Gv
 # endregion
 
 
@@ -40,10 +42,13 @@ class CacheManager:
         cache = self.__determine_cache(cache_type)
         freshness = self.__determine_freshness(cache_type)
         if not self.__is_exist(cache, key):
+            Gv.print_cache(key, False)
             return None
         if not self.__is_fresh(cache, freshness, key):
+            Gv.print_cache(key, False)
             return None
-        cache[key].freshness = datetime.datetime.now()
+        # cache[key].freshness = datetime.datetime.now()
+        Gv.print_cache(key, True)
         return cache[key].item
 
     def add(self, key, item, cache_type):

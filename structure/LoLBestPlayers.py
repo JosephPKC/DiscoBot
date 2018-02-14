@@ -45,7 +45,7 @@ class LoLBestPlayers:
         self.name = name
         self.players_list = players_list
 
-    def to_str(self, depth=0):
+    def to_str(self, amount, depth=0):
         tabs = '\t' * depth
         strings = []
         string = '{}{}\n'.format(tabs, self.name)
@@ -54,11 +54,15 @@ class LoLBestPlayers:
                                    Lv.queues_string_map[self.queue_id])
         strings.append(string)
         string = ''
-        for i, p in enumerate(self.players_list):
+
+        if amount >= len(self.players_list):
+            amount = len(self.players_list) - 1
+
+        for i, p in enumerate(self.players_list[:amount]):
             string += '{}. {}\n'.format(i + 1, p.to_str())
-            if i % 25 >= 24:
+            if i % Lv.split_best_players >= Lv.split_best_players - 1:
                 strings.append(string)
                 string = ''
-            elif len(self.players_list) - i == 1:
+            elif len(self.players_list[:amount]) - i == 1:
                 strings.append(string)
         return strings

@@ -39,15 +39,12 @@ class DatabaseManager:
             .format(str(queue_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(cached, True)
         result = {
             'map': cached[0],
             'mode': cached[1],
@@ -83,15 +80,12 @@ class DatabaseManager:
             .format(str(season_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(query, True)
         return cached[0]
 
     def select_lol_champion(self, champion_id):
@@ -102,15 +96,12 @@ class DatabaseManager:
             .format(str(champion_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(query, True)
         return cached[0]
 
     def select_lol_champion_inverted(self, champion_name):
@@ -121,15 +112,12 @@ class DatabaseManager:
             .format(str(champion_name))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(query, True)
         return cached[0]
 
     def select_lol_summoner_spell(self, summoner_spell_id):
@@ -159,15 +147,12 @@ class DatabaseManager:
             .format(str(item_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(query, True)
         return cached[0]
 
     def select_lol_rune_style(self, rune_style_id):
@@ -199,15 +184,12 @@ class DatabaseManager:
             .format(str(rune_id))
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
-            Gv.print_cache(query, False)
             cur.execute(query)
             cached = cur.fetchone()
             if cached is None:
                 print('Nothing found with {}'.format(query))
                 return None
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        else:
-            Gv.print_cache(query, True)
         results = {
             'name': cached[0],
             'vars': [cached[1], cached[2], cached[3]],

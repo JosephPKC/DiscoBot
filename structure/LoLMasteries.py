@@ -45,11 +45,14 @@ class LoLMasteries:
         strings.append(string)
         string = ''
 
+        if amount >= len(self.masteries_list):
+            amount = len(self.masteries_list) - 1
+
         if use_asc:
             self.masteries_list.reverse()
         for i, m in enumerate(self.masteries_list[:amount]):
             string += '{}\n'.format(m.to_str(depth + 1)[0])
-            if i % 10 >= 9:
+            if i % Lv.split_masteries >= Lv.split_masteries - 1:
                 strings.append(string)
                 string = ''
             elif len(self.masteries_list[:amount]) - i == 1:

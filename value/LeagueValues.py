@@ -12,7 +12,24 @@ profile_icon_url_part = '/img/profileicon/'
 
 # region Defaults
 default_region = 'na1'
-default_amount_range_match_list = [1, 20]
+default_recent_matches_amount = 10
+default_match_index = 1
+default_masteries_amount = 10
+default_best_players_amount = 100
+# endregion
+
+# region Ranges
+range_recent_matches = [1, 20]
+range_match_index = [1, -1]
+range_masteries = [1, -1]
+range_best_players = [1, 200]
+# endregion
+
+# region Display String Split Amounts
+split_masteries = 10
+split_best_players = 25
+split_match_list = 10
+split_match_timeline = 10
 # endregion
 
 # region Mappings
@@ -47,6 +64,7 @@ queues_string_map_inverted = {
 }
 
 tiers_string_map = {
+    'MASTER': 'Master',
     'CHALLENGER': 'Challenger'
 }
 

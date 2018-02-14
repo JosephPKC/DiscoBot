@@ -26,9 +26,13 @@ class CacheKeyType(Enum):
     API_LOL_MASTERY = 11
     STR_LOL_TOTAL_MASTERY = 12
     API_LOL_TOTAL_MASTERY = 13
-    STR_LOL_CHALLENGERS = 14
-    API_LOL_CHALLENGERS = 15
-    API_LOL_MATCH_LIST_FULL = 16
+    API_LOL_MATCH_LIST_FULL = 14
+    STR_LOL_CHALLENGERS = 15
+    API_LOL_CHALLENGERS = 16
+    STR_LOL_MASTERS = 17
+    API_LOL_MASTERS = 18
+    STR_LOL_STATUS = 19
+    API_LOL_STATUS = 20
 # endregion
 
 
@@ -52,7 +56,7 @@ argument_prefix = '-'
 argument_value_prefix = '='
 
 # Time, Durations
-db_freshness = 300
+db_freshness = 60
 api_freshness = 30
 str_freshness = 30
 # endregion

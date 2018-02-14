@@ -1,12 +1,12 @@
 # region Imports
-from value import LeagueValues as Lv
+from value import LeagueValues as Lv, GeneralValues as Gv
 # endregion
 
 
 class LoLMatch:
     def __init__(self, region, match_id, champion_pair,
                  queue_pair, season_pair,
-                 role_id, lane_id, kda_triple, cs, cc,
+                 role_id, lane_id, duration, kda_triple, cs, cc,
                  vision, is_win, is_lanes=True):
         self.region = region
         self.match_id = match_id
@@ -15,6 +15,7 @@ class LoLMatch:
         self.season_pair = season_pair
         self.role_id = role_id
         self.lane_id = lane_id
+        self.duration = duration
         self.kda_triple = kda_triple
         self.cs = cs
         self.cc = cc
@@ -28,6 +29,8 @@ class LoLMatch:
         string += '{}Match ID: {}\n'.format(tabs, self.match_id)
         string += '{}{}\n'.format(tabs, self.season_pair[1])
         string += '{}{}\n'.format(tabs, self.queue_pair[1])
+        mins, secs = Gv.get_minutes_seconds(self.duration)
+        string += '{}Duration: {}:{:02d}\n'.format(tabs, int(mins), secs)
         string += '{}Champion: {}\n'.format(tabs, self.champion_pair[1])
         if self.is_lanes:
             string += '{}Lane: {} {}\n'.format(tabs,
@@ -56,14 +59,15 @@ class LoLMatchList:
         string += '{}Recent Matches:\n'.format(tabs)
         strings.append(string)
         string = ''
-        for i, m in enumerate(self.matches[:amount]):
-            if i % 10 < 9:
-                string += '{}\n'.format(m.to_str(depth + 1)[0])
-            else:
-                string += '{}\n'.format(m.to_str(depth + 1)[0])
 
+        if amount >= len(self.matches):
+            amount = len(self.matches) - 1
+
+        for i, m in enumerate(self.matches[:amount]):
+            string += '{}\n'.format(m.to_str(depth + 1)[0])
+            if i % Lv.split_match_list >= Lv.split_match_list - 1:
                 strings.append(string)
                 string = ''
-            if i % 10 < 9 and len(self.matches[:amount]) - i == 1:
+            elif len(self.matches[:amount]) - i == 1:
                 strings.append(string)
         return strings
