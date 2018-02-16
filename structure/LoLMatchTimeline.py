@@ -17,8 +17,7 @@ class LoLMatchTimelineEvent:
         tabs = '\t' * depth
         team_string = '1' if self.team_id == 100 else '2'
         mins, secs = Lv.get_mins_secs_from_time_stamp(self.time_stamp)
-        string = '{}@{}:{:02d}\n'.format(tabs, mins, secs)
-        string += '{}Team {} '.format(tabs, team_string)
+        string = '{}@{}:{:02d}: Team {} '.format(tabs, mins, secs, team_string)
         if self.event_type == 'CHAMPION_KILL':
             string += 'has slain {}.\n'.format(self.victim)
         elif self.event_type == 'BUILDING_KILL':

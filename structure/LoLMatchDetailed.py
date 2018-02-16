@@ -112,11 +112,11 @@ class LoLMatchDetailedPlayerPackage:
         string = ''
         if use_details:
             string += '{}Largest Killing Spree: {}\n'.format(tabs, self.largest_spree)
-            string += '{}Largest Multi Kill: {}\n'.format(tabs, self.largest_multi_kill)
+            string += '{}Largest Multi Kill:    {}\n'.format(tabs, self.largest_multi_kill)
             string += '\t{}Double Kills: {}\n'.format(tabs, self.double_kills)
             string += '\t{}Triple Kills: {}\n'.format(tabs, self.triple_kills)
             string += '\t{}Quadra Kills: {}\n'.format(tabs, self.quadra_kills)
-            string += '\t{}Penta Kills: {}\n'.format(tabs, self.penta_kills)
+            string += '\t{}Penta Kills:  {}\n'.format(tabs, self.penta_kills)
             string += '\t{}Unreal Kills: {}\n'.format(tabs, self.unreal_kills)
             if self.first_blood_pair[0]:
                 string += '\t{}First Blood Kill.\n'.format(tabs)
@@ -125,7 +125,7 @@ class LoLMatchDetailedPlayerPackage:
             string += '\n'
 
             if self.towers_pair[0]:
-                string += '{}Towers Killed: {}\n'.format(tabs, self.towers_pair[1])
+                string += '{}Towers Killed:     {}\n'.format(tabs, self.towers_pair[1])
                 if self.first_tower_pair[0]:
                     string += '\t{}First Tower Kill.\n'.format(tabs)
                 elif self.first_tower_pair[1]:
@@ -149,22 +149,22 @@ class LoLMatchDetailedPlayerPackage:
 
         string += '{}Damage Dealt: {}\n'.format(tabs, self.damage_dealt.total)
         if use_details:
-            string += '\t{}Magical: {}\n'.format(tabs, self.damage_dealt.magical)
+            string += '\t{}Magical:  {}\n'.format(tabs, self.damage_dealt.magical)
             string += '\t{}Physical: {}\n'.format(tabs, self.damage_dealt.physical)
-            string += '\t{}True: {}\n'.format(tabs, self.damage_dealt.true)
+            string += '\t{}True:     {}\n'.format(tabs, self.damage_dealt.true)
 
         string += '{}Damage Dealt to Champions: {}\n'\
             .format(tabs, self.damage_to_champs.total)
         if use_details:
-            string += '\t{}Magical: {}\n'.format(tabs, self.damage_to_champs.magical)
+            string += '\t{}Magical:  {}\n'.format(tabs, self.damage_to_champs.magical)
             string += '\t{}Physical: {}\n'.format(tabs, self.damage_to_champs.physical)
-            string += '\t{}True: {}\n'.format(tabs, self.damage_to_champs.true)
+            string += '\t{}True:     {}\n'.format(tabs, self.damage_to_champs.true)
 
         string += '{}Damage Taken: {}\n'.format(tabs, self.damage_taken.total)
         if use_details:
-            string += '\t{}Magical: {}\n'.format(tabs, self.damage_taken.magical)
+            string += '\t{}Magical:  {}\n'.format(tabs, self.damage_taken.magical)
             string += '\t{}Physical: {}\n'.format(tabs, self.damage_taken.physical)
-            string += '\t{}True: {}\n'.format(tabs, self.damage_taken.true)
+            string += '\t{}True:     {}\n'.format(tabs, self.damage_taken.true)
 
             string += '{}Damage Dealt to Objectives: {}\n'.format(tabs, self.damage_to_obj)
             string += '{}Damage Dealt to Towers: {}\n'.format(tabs, self.damage_to_tower)
@@ -224,26 +224,26 @@ class LoLMatchDetailedTeamPackage:
             if self.first_blood:
                 string += '{}{}.\n'.format(tabs, 'First Blood')
             if self.towers_pair[0]:
-                string += '{}Towers: {}.{}\n'\
+                string += '{}Towers:       {:<2}{}\n'\
                     .format(tabs, self.towers_pair[1],
                             ' First Tower.' if self.first_tower else '')
             if self.inhibitors_pair[0]:
-                string += '{}Inhibitors: {}.{}\n'\
+                string += '{}Inhibitors:   {:<2}{}\n'\
                     .format(tabs, self.inhibitors_pair[1],
                             ' First Inhibitor.' if self.first_inhibitor else '')
             if self.dragons_pair[0]:
-                string += '{}Dragons: {}.{}\n'\
+                string += '{}Dragons:      {:<2}{}\n'\
                     .format(tabs, self.dragons_pair[1],
                             ' First Dragon.' if self.first_dragon else '')
             if self.heralds_pair[0]:
-                string += '{}Rift Heralds: {}.\n'\
+                string += '{}Rift Heralds: {:<2}\n'\
                     .format(tabs, self.heralds_pair[1])
             if self.barons_pair[0]:
-                string += '{}Barons: {}.{}\n'\
+                string += '{}Barons:       {:<2}{}\n'\
                     .format(tabs, self.barons_pair[1],
                             ' First Baron.' if self.first_baron else '')
             if self.vilemaws_pair[0]:
-                string += '{}Vile Maws: {}.\n'.format(tabs, self.vilemaws_pair[1])
+                string += '{}Vile Maws:    {:<2}\n'.format(tabs, self.vilemaws_pair[1])
 
         if self.bans_pair_list:
             string += '{}Bans:\n'.format(tabs)

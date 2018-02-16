@@ -52,14 +52,18 @@ class DiscoLoLCog:
 
     @lol.command(name='help', aliases=[],
                  pass_context=True, help='Show commands.')
-    async def help(self, ctx):
-        print('Command: {}'.format(ctx.command))
-        lol_commands = ['player', 'matchlist', 'match', 'timeline', 'buildorder', 'masteries', 'mastery', 'totalmastery', 'challengers', 'masters', 'status', 'spectate', 'champion', 'skins']
+    async def help(self, ctx, cmd_input: str=None):
+        Gv.print_command(ctx.command, cmd_input)
+        lol_commands = [
+            'player', 'matchlist', 'match', 'timeline', 'buildorder', 'masteries',
+            'mastery', 'totalmastery', 'challengers', 'masters', 'status', 'spectate',
+            'champion', 'skins', 'icon', 'emote', 'item', 'stats'
+        ]
         # A special command that simply displays all of the command usages.
         help = ''
         for c in lol_commands:
-            help += '{} - {}\n\n'.format(self.__get_command_usage(c), self.__get_command_description(c))
-        msg = await self.__bot.say('```{}```'.format(help))
+            help += '{}\n\t - {}\n\n'.format(self.__get_command_usage(c), self.__get_command_description(c))
+        msg = await self.__stylized_print(help)
         for e in self.__bot.get_all_emojis():
             if e.name == 'hellyeah':
                 await self.__bot.add_reaction(msg, e)
@@ -73,7 +77,7 @@ class DiscoLoLCog:
     @lol.command(name='player', aliases=['summoner'],
                  pass_context=True, help='Get player info.')
     async def player(self, ctx, *, cmd_input: str=None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('player'))
             return
@@ -106,17 +110,20 @@ class DiscoLoLCog:
             cached = self.__create_player(region, player, ranks)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
+        await self.__bot.say('OP.GG: http://{}.op.gg/summoner/userName={}'
+                             .format(Lv.regions_match_history_string_map[cached.region],
+                                     cached.name))
         await self.__bot.say('{}{}{}{}.png'.format(Lv.base_url,
                                                    self.__data_dragon.get_current_patch(),
                                                    Lv.profile_icon_url_part,
                                                    cached.icon))
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='matchlist', aliases=['matches'],
                  pass_context=True, help='Get most recent matches.')
     async def matchlist(self, ctx, *, cmd_input: str=None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('matchlist'))
             return
@@ -157,13 +164,16 @@ class DiscoLoLCog:
             cached = self.__create_match_list(region, player, matchlist)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
+        await self.__bot.say('OP.GG: http://{}.op.gg/summoner/userName={}'
+                             .format(Lv.regions_match_history_string_map[cached.region],
+                                     cached.name))
         for s in cached.to_str(amount):
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='match', aliases=[],
                  pass_context=True, help='Get match info.')
     async def match(self, ctx, *, cmd_input: str=None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('match'))
             return
@@ -192,7 +202,7 @@ class DiscoLoLCog:
             return
         region = region_temp
         # Get and Check Flags
-        use_rune, _, others = self.__parse_args(others, 'rd')
+        use_rune, _, others = self.__parse_args(others, 'ru')
         use_detail, _, others = self.__parse_args(others, 'd')
         use_timeline, _, _ = self.__parse_args(others, 't')
         # Get match ID
@@ -215,12 +225,12 @@ class DiscoLoLCog:
         # Display Storage Structure
         await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id)))
         for s in cached.to_str(use_rune, use_detail, use_timeline):
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='timeline', aliases=[],
                  pass_context=True, help='Get match timeline.')
     async def timeline(self, ctx, *, cmd_input: str=None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('timeline'))
             return
@@ -268,12 +278,12 @@ class DiscoLoLCog:
         # Display Storage Structure
         await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id)))
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='buildorder', aliases=[],
                  pass_context=True, help='Get build order.')
     async def buildorder(self, ctx, *, cmd_input: str=None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('buildorder'))
             return
@@ -317,12 +327,12 @@ class DiscoLoLCog:
         # Display Storage Structure
         await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id, cached.player_id)))
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='masteries', aliases=[],
                  pass_context=True, help='Get champion masteries.')
     async def masteries(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('masteries'))
             return
@@ -368,12 +378,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str(amount, use_asc):
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='mastery', aliases=[],
                  pass_context=True, help='Get champion mastery.')
     async def mastery(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('mastery'))
             return
@@ -414,12 +424,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='totalmastery', aliases=[],
                  pass_context=True, help='Get total mastery.')
     async def totalmastery(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('totalmastery'))
             return
@@ -455,12 +465,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='challengers', aliases=[],
                  pass_context=True, help='Get all challengers.')
     async def challengers(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('challengers'))
             return
@@ -504,12 +514,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str(amount):
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='masters', aliases=[],
                  pass_context=True, help='Get all masters.')
     async def masters(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('masters'))
             return
@@ -552,12 +562,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str(amount):
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='status', aliases=[],
                  pass_context=True, help='Get server status.')
     async def status(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         # Parse into Inputs and Args
         _, args = self.__parse_inputs_and_args(cmd_input)
         # Get and Check Region
@@ -582,12 +592,12 @@ class DiscoLoLCog:
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     @lol.command(name='spectate', aliases=[],
                  pass_context=True, help='Get specate info.')
     async def spectate(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('spectate'))
             return
@@ -628,13 +638,13 @@ class DiscoLoLCog:
         file = self.__create_spectate_bat(region, cached.encryption_key, cached.match_id)
         await self.__bot.send_file(ctx.message.channel, file)
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     # Commands that use Data Dragon URLs
     @lol.command(name='champion', aliases=[],
                  pass_context=True, help='Get champion info.')
     async def champion(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('champion'))
             return
@@ -671,10 +681,10 @@ class DiscoLoLCog:
                 arts = champion[1]
                 self.__cache.add(str_arts_key, arts, CacheManager.CacheType.STR)
         # Display Storage Structure
-        for s in cached.to_str(use_lore, use_tips):
-            await self.__bot.say('```{}```'.format(s))
         await self.__bot.say('Official: {}\n'
                              .format( cached.official_url))
+        for s in cached.to_str(use_lore, use_tips):
+            await self.__stylized_print(s)
         if use_art:
             for a in arts:
                 title = a[0]
@@ -685,7 +695,7 @@ class DiscoLoLCog:
     @lol.command(name='skins', aliases=[],
                  pass_context=True, help='Get champion skin arts.')
     async def skins(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('skins'))
             return
@@ -722,7 +732,7 @@ class DiscoLoLCog:
     @lol.command(name='icon', aliases=[],
                  pass_context=True, help='Get profile icon.')
     async def icon(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         # Parse into Inputs and Args
         if cmd_input is None:
             use_random = True
@@ -742,7 +752,7 @@ class DiscoLoLCog:
     @lol.command(name='emote', aliases=[],
                  pass_context=True, help='Get emote.')
     async def emote(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         await self.__bot.say('Emotes are currently not supported in Datadragon. Thus, this command won\'t work.')
         return
         # Parse into Inputs and Args
@@ -764,7 +774,7 @@ class DiscoLoLCog:
     @lol.command(name='item', aliases=[],
                  pass_context=True, help='Get item info.')
     async def item(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('item'))
             return
@@ -793,13 +803,13 @@ class DiscoLoLCog:
         # Display Storage Structure
         await self.__bot.say(cached.art)
         for s in cached.to_str():
-            await self.__bot.say('```{}```'.format(s))
+            await self.__stylized_print(s)
 
     # Commands that use Champion GG API
     @lol.command(name='stats', aliases=['top'],
                  pass_context=True, help='Get champion stats.')
     async def stats(self, ctx, *, cmd_input: str = None):
-        print('Command: {}'.format(ctx.command))
+        Gv.print_command(ctx.command, cmd_input)
         if cmd_input is None:
             await self.__bot.say(self.__get_command_usage('best'))
             return
@@ -820,7 +830,7 @@ class DiscoLoLCog:
         use_norm, _, others = self.__parse_args(others, 'n')
         use_min_max, _, _ = self.__parse_args(others, 'm')
         # Check Cache
-        str_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION)
+        str_key = (name, elo, Gv.CacheKeyType.STR_LOL_CHAMPION)
         cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
         if cached is None:
             # Get Data via API
@@ -846,7 +856,7 @@ class DiscoLoLCog:
                                          Lv.ch_gg_roles_string_map[c.role],
                                          Lv.elo_string_map_inverted[c.elo]))
             for s in c.to_str(use_pos, use_norm, use_min_max):
-                await self.__bot.say('```{}```'.format(s))
+                await self.__stylized_print(s)
 
     # endregion
 
@@ -923,8 +933,8 @@ class DiscoLoLCog:
                 ' \"spectator spectator.{}.lol.riotgames.com:{}'
                 ' {} {} {}" "-UseRads\"\n'
                 '\t\tgoto :eof\n\t)\n'
-                    .format(spectate_info[1], spectate_info[2],
-                            encryption_key, match_id, spectate_info[0])
+                .format(spectate_info[1], spectate_info[2],
+                        encryption_key, match_id, spectate_info[0])
             )
         return 'data/spectate/' + name
 
@@ -1066,11 +1076,13 @@ class DiscoLoLCog:
 
     def __find_champion_stats(self, champion_id, elo):
         params = [champion_id]
-        api_key = (champion_id, Gv.CacheKeyType.API_LOL_CHAMPION_STATS)
+        api_key = (champion_id, elo, Gv.CacheKeyType.API_LOL_CHAMPION_STATS)
 
         def api_function():
             options = {
-                'champData': 'kda,damage,averageGames,goldEarned,totalheal,sprees,minions,positions,normalized,maxMins,matchups,hashes,overallPerformanceScore,wins,wards'
+                'champData': 'kda,damage,averageGames,goldEarned,totalheal,sprees,'
+                             'minions,positions,normalized,maxMins,matchups,hashes,'
+                             'overallPerformanceScore,wins,wards'
             }
             if elo != Lv.elo_strings_map[Lv.default_elo]:
                 options['elo'] = elo
@@ -1446,8 +1458,6 @@ class DiscoLoLCog:
         if participant_id == 0:
             print('{} not found in match {}.'.format(name, match_id))
 
-
-
         champion_id = match['participants'][participant_id - 1]['championId']
         champion = self.__database.select_lol_champion(champion_id)
 
@@ -1660,10 +1670,11 @@ class DiscoLoLCog:
         norm_data = data['normalized']
         normalized = LoLChampionStats.LolChampionStatsNormalized(
             [norm_data['kills'], norm_data['deaths'], norm_data['assists']],
-            norm_data['winRate'] * 100, norm_data['playRate'] * 100, norm_data['banRate'] * 100,
+            norm_data['winRate'], norm_data['playRate'], norm_data['banRate'],
             [norm_data['minionsKilled'], norm_data['neutralMinionsKilledTeamJungle'],
              norm_data['neutralMinionsKilledEnemyJungle']], norm_data['goldEarned'],
-            norm_data['killingSprees'], norm_data['averageGameScore'], norm_data['totalDamageTaken'], norm_data['totalDamageDealt'], norm_data['totalHeal']
+            norm_data['killingSprees'], norm_data['averageGameScore'],
+            norm_data['totalDamageTaken'], norm_data['totalDamageDealt'], norm_data['totalHeal']
         )
 
         mm_data = data['maxMins']
@@ -1729,8 +1740,9 @@ class DiscoLoLCog:
         return found, value, [a for i, a in enumerate(args) if i != index]
     # endregion
 
-    def __get_current_previous_diff(self, current, prev):
-        return [current, prev, current - prev]
+    @staticmethod
+    def __get_current_previous_diff(current, prev):
+        return [current, prev, prev - current]
 
     @staticmethod
     def __get_indicies_from_match(player_id, match, num_of_players):
@@ -1752,7 +1764,7 @@ class DiscoLoLCog:
         # description = re.sub('<br? ?/>', '\n\t', description)
         return re.sub('<[a-zA-Z0-9 #=\'\"/]*>', '', description)
 
-    def __parse_spell_description(self, spell, effects, vars):
+    def __parse_spell_description(self, spell, effects, spell_vars):
         description = self.__clean_description(spell, True)
         # description = spell
         # description = re.sub('<br><br>', '\n\t', description)
@@ -1770,7 +1782,7 @@ class DiscoLoLCog:
         for i, e in enumerate(effects):
             if e is not None:
                 description = description.replace('{{{{ e{} }}}}'.format(i), e)
-        for v in vars:
+        for v in spell_vars:
             description = description. \
                 replace('{{{{ {} }}}}'.format(v['key']),
                         '{} {}'.format(str(v['coeff']), Lv.spell_effect_burn_map[v['link']]))
@@ -1778,54 +1790,54 @@ class DiscoLoLCog:
         return description
 
     @staticmethod
-    def __get_command_usage(command, prefix=Gv.argument_prefix, value_prefix=Gv.argument_value_prefix):
+    def __get_command_usage(command, command_prefix=Gv.prefix, prefix=Gv.argument_prefix, value_prefix=Gv.argument_value_prefix):
         if command == 'player':
-            return 'player *name* [{}r{}*region*]'\
-                .format(prefix, value_prefix)
+            return '{}player <player> [{}r{}<region>]'.format(command_prefix, prefix, value_prefix)
         elif command == 'matchlist':
-            return 'matchlist *name* [{}r{}*region*] [{}a{}*amount* 1-20]'\
-                .format(prefix, value_prefix, prefix, value_prefix)
+            return '{}matchlist <player> [{}r{}<region>] [{}a{}<amount: 1-20>]'\
+                .format(command_prefix, prefix, value_prefix, prefix, value_prefix)
         elif command == 'match':
-            return 'match *id*|*name* *index* [{}r{}*region*] [{}rd] [{}d] [{}t]'\
-                .format(prefix, value_prefix, prefix, prefix, prefix)
+            return '{}match <match id> || <player> <index> [{}r{}<region>] [{}ru] [{}d] [{}t]'.format(command_prefix, prefix, value_prefix, prefix, prefix, prefix)
         elif command == 'timeline':
-            return 'timeline *id*|*name* *index* [{}r{}*region*]' \
-                .format(prefix, value_prefix)
+            return '{}timeline <match id> || <player> <index> [{}r{}<region>]'\
+                .format(command_prefix, prefix, value_prefix)
         elif command == 'buildorder':
-            return 'buildorder *name* *id*|*name* *index* [{}r{}*region*]' \
-                .format(prefix, value_prefix, prefix, prefix, prefix)
+            return '{}buildorder <player> <match id> || <name> <index> [{}r{}<region>]' \
+                .format(command_prefix, prefix, value_prefix, prefix, prefix, prefix)
         elif command == 'masteries':
-            return 'masteries *name* [{}r{}*region*] [{}a{}*amount* 1+] [{}asc]' \
-                .format(prefix, value_prefix, prefix, value_prefix, prefix)
+            return '{}masteries <player> [{}r{}<region>] [{}a{}<amount: 1+>] [{}asc]' \
+                .format(command_prefix, prefix, value_prefix, prefix, value_prefix, prefix)
         elif command == 'mastery':
-            return 'mastery *name* *champion* [{}r{}*region*]' \
-                .format(prefix, value_prefix)
+            return '{}mastery <player> <champion> [{}r{}<region>]'\
+                .format(command_prefix, prefix, value_prefix)
         elif command == 'totalmastery':
-            return 'totalmastery *name* [{}r{}*region*]' \
-                .format(prefix, value_prefix)
+            return '{}totalmastery <player> [{}r{}<region>]'\
+                .format(command_prefix, prefix, value_prefix)
         elif command == 'challengers':
-            return 'challengers *queue* [{}r{}*region*] [{}a{}*amount*]' \
-                .format(prefix, value_prefix, prefix, value_prefix)
+            return '{}challengers <queue> [{}r{}<region>] [{}a{}<amount: 1-200>]' \
+                .format(command_prefix, prefix, value_prefix, prefix, value_prefix)
         elif command == 'masters':
-            return 'masters *queue* [{}r{}*region*] [{}a{}*amount*]' \
-                .format(prefix, value_prefix, prefix, value_prefix)
+            return '{}masters <queue> [{}r{}<region>] [{}a{}<amount: 1+>]' \
+                .format(command_prefix, prefix, value_prefix, prefix, value_prefix)
         elif command == 'status':
-            return 'status [{}r{}*region*]' \
-                .format(prefix, value_prefix)
+            return '{}status [{}r{}<region>]'.format(command_prefix, prefix, value_prefix)
         elif command == 'spectate':
-            return 'spectate *name* [{}r{}*region*]' \
-                .format(prefix, value_prefix)
+            return '{}spectate <player> [{}r{}<region>]'\
+                .format(command_prefix, prefix, value_prefix)
         elif command == 'champion':
-            return 'champion *name* [{}l] [{}t] [{}a]' \
-                .format(prefix, prefix, prefix)
+            return '{}champion <champion> [{}l] [{}t] [{}a]'\
+                .format(command_prefix, prefix, prefix, prefix)
         elif command == 'skins':
-            return 'skins *name*'
+            return '{}skins <champion>'.format(command_prefix)
         elif command == 'icon':
-            return 'icon [*id*]'
+            return '{}icon [<icon id>]'.format(command_prefix)
         elif command == 'emote':
-            return 'emote [*id*]'
+            return '{}emote [<emote id>]'.format(command_prefix)
         elif command == 'item':
-            return 'item *name*'
+            return '{}item <item>'.format(command_prefix)
+        elif command == 'stats':
+            return '{}stats <champion> [{}p] [{}m] [{}n]'\
+                .format(command_prefix, prefix, prefix, prefix)
         else:
             return ''
 
@@ -1865,6 +1877,8 @@ class DiscoLoLCog:
             return 'Get emote url.'
         elif command == 'item':
             return 'Get details on given item.'
+        elif command == 'stats':
+            return 'Get statistics on given champion.'
         else:
             return ''
 
@@ -1879,3 +1893,7 @@ class DiscoLoLCog:
             print('HTTP Error {}. Query not found.'.format(e.response.status_code))
         else:
             print('HTTP Error {}'.format(e.response.status_code))
+
+    async def __stylized_print(self, string):
+        lang = 'html'
+        return await self.__bot.say('```{}\n{}\n```'.format(lang, string))

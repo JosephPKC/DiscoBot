@@ -18,7 +18,7 @@ from value import GeneralValues as Gv
 path = 'config.txt'
 blurb = 'Shurima'
 game = 'Ascension'
-prefix = '\\'
+
 # endregion
 
 # region Start Script
@@ -29,7 +29,7 @@ with open(path, 'r') as file:
     champion_gg_key = file.readline().rstrip('\n')
 
 # Create the bot
-bot = commands.Bot(command_prefix=prefix, description=blurb)
+bot = commands.Bot(command_prefix=Gv.prefix, description=blurb)
 
 # Create the managers
 cache = CacheManager.CacheManager(Gv.db_freshness, Gv.api_freshness, Gv.str_freshness)

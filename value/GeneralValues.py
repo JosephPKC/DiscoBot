@@ -64,6 +64,7 @@ general_path_prefix = 'data\\'
 lol_db_path = 'data\\LoLStaticData.db'
 
 # Prefix
+prefix = '\\'
 argument_prefix = '-'
 argument_value_prefix = '='
 
@@ -82,4 +83,8 @@ def print_cache(key, found):
 
 def get_minutes_seconds(time_in_s):
     return time_in_s / 60, time_in_s % 60
+
+
+def print_command(cmd, inp):
+    print('Command: {}\nInput: {}\n'.format(cmd, inp))
 # endregion

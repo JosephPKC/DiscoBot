@@ -41,27 +41,28 @@ class LoLChampionStats:
 
     def to_str(self, depth=0):
         tabs = '\t' * depth
-        string = '{}Health: {} (+{} per level)\n'\
+        string = '{}Health:          {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.hp_pair[0], self.hp_pair[1])
-        string += '{}Mana: {} (+{} per level)\n'\
+        string += '{}Mana:            {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.mp_pair[0], self.mp_pair[1])
-        string += '{}Health Regen: {} (+{} per level)\n'\
+        string += '{}Health Regen:    {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.hpr_pair[0], self.hpr_pair[1])
-        string += '{}Mana Regen: {} (+{} per level)\n'\
+        string += '{}Mana Regen:      {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.mpr_pair[0], self.mpr_pair[1])
-        string += '{}Attack Damage: {} (+{} per level)\n'\
+        string += '{}Attack Damage:   {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.ad_pair[0], self.ad_pair[1])
         base_as = 0.625 / (1 + self.as_pair[0])
-        string += '{}Attack Speed: {:04.4f} (+{}% per level)\n'.format(tabs, base_as, self.as_pair[1])
-        string += '{}Armor: {} (+{} per level)\n'\
+        string += '{}Attack Speed:    {:04.4f} (+{:.2%} per level)\n'\
+            .format(tabs, base_as, self.as_pair[1] / 100)
+        string += '{}Armor:           {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.armor_pair[0], self.armor_pair[1])
-        string += '{}Magic Resist: {} (+{} per level)\n'\
+        string += '{}Magic Resist:    {:<6} (+{:<5} per level)\n'\
             .format(tabs, self.mr_pair[0], self.mr_pair[1])
         if self.crit_pair[0] != 0 or self.crit_pair[1] != 0:
-            string += '{}Critical Hit Chance: {} (+{}% per level)\n'\
-                .format(tabs, self.crit_pair[0], self.crit_pair[1])
-        string += '{}Movement Speed: {}\n'.format(tabs, self.ms)
-        string += '{}Attack Range: {}\n'.format(tabs, self.auto_range)
+            string += '{}Critical Chance: {:<6} (+{:.2%} per level)\n'\
+                .format(tabs, self.crit_pair[0], self.crit_pair[1] / 100)
+        string += '{}Movement Speed:  {:<6}\n'.format(tabs, self.ms)
+        string += '{}Attack Range:    {:<6}\n'.format(tabs, self.auto_range)
         return string
 
 

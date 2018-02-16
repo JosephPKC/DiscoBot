@@ -108,9 +108,9 @@ class DatabaseManager:
         if champion_name is None:
             return None
         cur = self.__lol_con.cursor()
-        clean_name = champion_name.lower().replace(' ', '')
+        clean_name = champion_name.lower().replace(' ', '').replace('\'', '')
         query = 'SELECT Id FROM Champions WHERE ' \
-                'replace(lower(Name), \' \', \'\') = \'{}\';' \
+                'replace(replace(lower(Name), \' \', \'\'), \'\'\'\', \'\') = \'{}\';' \
             .format(clean_name)
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
@@ -140,10 +140,10 @@ class DatabaseManager:
     def select_lol_champion_json_inverted(self, champion_name):
         if champion_name is None:
             return None
-        clean_name = champion_name.lower().replace(' ', '')
+        clean_name = champion_name.lower().replace(' ', '').replace('\'', '')
         cur = self.__lol_con.cursor()
         query = 'SELECT Name, JsonName FROM Champions WHERE ' \
-                'replace(lower(Name), \' \', \'\') = \'{}\';'\
+                'replace(replace(lower(Name), \' \', \'\'), \'\'\'\', \'\') = \'{}\';' \
             .format(clean_name)
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
@@ -209,9 +209,10 @@ class DatabaseManager:
         if item_name is None:
             return None
         cur = self.__lol_con.cursor()
-        clean_name = item_name.lower().replace(' ', '')
+        clean_name = item_name.lower().replace(' ', '').replace('\'', '')
         query = 'SELECT Id FROM Items WHERE ' \
-                'replace(lower(Name), \' \', \'\') = \'{}\';'.format(clean_name)
+                'replace(replace(lower(Name), \' \', \'\'), \'\'\'\', \'\') = \'{}\';' \
+            .format(clean_name)
         cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
         if cached is None:
             cur.execute(query)

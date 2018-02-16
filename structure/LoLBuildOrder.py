@@ -14,11 +14,11 @@ class LoLBuildOrderEvent:
     def to_str(self, depth=0):
         tabs = '\t' * depth
         mins, secs = Lv.get_mins_secs_from_time_stamp(self.time_stamp)
-        string = '{}@{}:{:02d}\n'.format(tabs, mins, secs)
+        string = '{}@{}:{:02d}: '.format(tabs, mins, secs)
         if self.event_type == 'ITEM_PURCHASED':
-            string += '{}Purchased/Got: {}\n'.format(tabs, self.item)
+            string += 'Purchased/Got: {}\n'.format(self.item)
         else:
-            string += '{}Sold/Used/Removed: {}\n'.format(tabs, self.item)
+            string += 'Sold/Used/Removed: {}\n'.format(self.item)
         return string
 
 

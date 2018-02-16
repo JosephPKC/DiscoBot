@@ -45,11 +45,11 @@ range_best_players = [1, 200]
 # endregion
 
 # region Display String Split Amounts
-split_masteries = 10
-split_best_players = 25
+split_masteries = 12
+split_best_players = 20
 split_match_list = 10
-split_match_timeline = 10
-split_build_order = 10
+split_match_timeline = 15
+split_build_order = 25
 # endregion
 
 # region Mappings
@@ -180,11 +180,11 @@ elo_strings_map = {
 }
 
 elo_string_map_inverted = {
-    'PLATINUM,DIAMOND,MASTER,CHALLENGER': 'platplus',
-    'PLATINUM': 'plat',
-    'GOLD': 'gold',
-    'SILVER': 'silver',
-    'BRONZE': 'bronze'
+    'PLATINUM,DIAMOND,MASTER,CHALLENGER': 'Platplus',
+    'PLATINUM': 'Plat',
+    'GOLD': 'Gold',
+    'SILVER': 'Silver',
+    'BRONZE': 'Bronze'
 }
 # endregion
 

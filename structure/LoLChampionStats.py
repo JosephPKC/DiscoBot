@@ -19,20 +19,48 @@ class LoLChampionStatsPosition:
 
     def to_str(self, depth=0):
         tabs = '\t' * depth
-        string = '{}Overall Performance: {}/{} ({:+d} from {})\n'.format(tabs, self.performance[0], self.total, self.performance[2], self.performance[1])
-        string += '{}Win Rate: {}/{} ({:+d} from {})\n'.format(tabs, self.win_rate[0], self.total,self.win_rate[2], self.win_rate[1])
-        string += '{}Play Rate: {}/{} ({:+d} from {})\n'.format(tabs, self.play_rate[0], self.total,self.play_rate[2], self.play_rate[1])
-        string += '{}Ban Rate: {}/{} ({:+d} from {})\n'.format(tabs, self.ban_rate[0], self.total,self.ban_rate[2], self.ban_rate[1])
-        string += '{}Average Game Score: {}/{} ({:+d} from {})\n'.format(tabs, self.game_score[0], self.total, self.game_score[2], self.game_score[1])
-        string += '{}Kills: {}/{} ({:+d} from {})\n'.format(tabs, self.kda_triple[0][0], self.total,self.kda_triple[0][2],self.kda_triple[0][1])
-        string += '{}Deaths: {}/{} ({:+d} from {})\n'.format(tabs, self.kda_triple[1][0], self.total,self.kda_triple[1][2], self.kda_triple[1][1])
-        string += '{}Assists: {}/{} ({:+d} from {})\n'.format(tabs, self.kda_triple[2][0], self.total,self.kda_triple[2][2], self.kda_triple[2][1])
-        string += '{}Gold Earned: {}/{} ({:+d} from {})\n'.format(tabs, self.gold_earned[0], self.total,self.gold_earned[2], self.gold_earned[1])
-        string += '{}Minions: {}/{} ({:+d} from {})\n'.format(tabs, self.minions[0], self.total,self.minions[2],self.minions[1])
-        string += '{}Damage Dealt: {}/{} ({:+d} from {})\n'.format(tabs, self.damage_dealt[0], self.total,self.damage_dealt[2], self.damage_dealt[1])
-        string += '{}Damage Taken: {}/{} ({:+d} from {})\n'.format(tabs, self.damage_taken[0], self.total,self.damage_taken[2], self.damage_taken[1])
-        string += '{}Killing Sprees: {}/{} ({:+d} from {})\n'.format(tabs, self.killing_sprees[0], self.total,self.killing_sprees[2], self.killing_sprees[1])
-        string += '{}Healing: {}/{} ({:+d} from {})\n'.format(tabs, self.healing[0], self.total,self.healing[2], self.healing[1])
+        string = '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Overall Performance:', self.performance[0], self.total,
+                    self.performance[2], self.performance[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Win Rate:', self.win_rate[0], self.total,self.win_rate[2],
+                    self.win_rate[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Play Rate:', self.play_rate[0], self.total,self.play_rate[2],
+                    self.play_rate[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Ban Rate:', self.ban_rate[0], self.total,self.ban_rate[2],
+                    self.ban_rate[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Average Game Score:', self.game_score[0], self.total,
+                    self.game_score[2], self.game_score[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Kills:', self.kda_triple[0][0], self.total,
+                    self.kda_triple[0][2],self.kda_triple[0][1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Deaths:', self.kda_triple[1][0], self.total,
+                    self.kda_triple[1][2], self.kda_triple[1][1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Assists:', self.kda_triple[2][0], self.total,
+                    self.kda_triple[2][2], self.kda_triple[2][1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Gold Earned:', self.gold_earned[0], self.total,
+                    self.gold_earned[2], self.gold_earned[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Minions:', self.minions[0], self.total, self.minions[2],
+                    self.minions[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Damage Dealt:', self.damage_dealt[0], self.total,
+                    self.damage_dealt[2], self.damage_dealt[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Damage Taken:', self.damage_taken[0], self.total,
+                    self.damage_taken[2], self.damage_taken[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Killing Sprees:', self.killing_sprees[0], self.total,
+                    self.killing_sprees[2], self.killing_sprees[1])
+        string += '{}{:<25}{:>2}/{:<3} ({:+d} from {})\n'\
+            .format(tabs, 'Healing:', self.healing[0], self.total, self.healing[2],
+                    self.healing[1])
         return string
 
 
@@ -49,26 +77,40 @@ class LoLChampionStatsMinMax:
         self.damage_dealt = damage_dealt
         self.healing = healing
         self.damage_taken = damage_taken
-        self.kda = [(self.kda_triple[0][0] + self.kda_triple[0][2]) / (1 + self.kda_triple[0][1]),
-                    (self.kda_triple[1][0] + self.kda_triple[1][2]) / (1 + self.kda_triple[1][1])]
 
     def to_str(self, depth=0):
         tabs = '\t' * depth
-        string = '{}Win Rate: {:04.2f}% - {:04.2f}%\n'.format(tabs, self.win_rate[0], self.win_rate[1])
-        string += '{}Play Rate: {:04.2f}% - {:04.2f}%\n'.format(tabs, self.play_rate[0], self.play_rate[1])
-        string += '{}Ban Rate: {:04.2f}% - {:04.2f}%\n'.format(tabs, self.ban_rate[0], self.ban_rate[1])
-        string += '{}Kills: {:04.2f} - {:04.2f}\n'.format(tabs, self.kda_triple[0][0], self.kda_triple[1][0])
-        string += '{}Deaths: {:04.2f} - {:04.2f}\n'.format(tabs, self.kda_triple[0][1], self.kda_triple[1][1])
-        string += '{}Assists: {:04.2f} - {:04.2f}\n'.format(tabs, self.kda_triple[0][2], self.kda_triple[1][2])
-        string += '{}KDA: {:04.2f} - {:04.2f}\n'.format(tabs, self.kda[0], self.kda[1])
-        string += '{}Gold Earned: {:04.2f} - {:04.2f}\n'.format(tabs, self.gold_earned[0], self.gold_earned[1])
-        string += '{}Minions: {:04.2f} - {:04.2f}\n'.format(tabs, self.minions_triple[0][0], self.minions_triple[1][0])
-        string += '{}Monsters in Ally Jungle: {:04.2f} - {:04.2f}\n'.format(tabs, self.minions_triple[0][1], self.minions_triple[1][1])
-        string += '{}Monsters in Enemy Jungle: {:04.2f} - {:04.2f}\n'.format(tabs, self.minions_triple[0][2], self.minions_triple[1][2])
-        string += '{}Damage Dealt: {:04.2f} - {:04.2f}\n'.format(tabs, self.damage_dealt[0], self.damage_dealt[1])
-        string += '{}Damage Taken: {:04.2f} - {:04.2f}\n'.format(tabs, self.damage_taken[0], self.damage_taken[1])
-        string += '{}Killing Sprees: {:04.2f} - {:04.2f}\n'.format(tabs, self.killing_sprees[0], self.killing_sprees[1])
-        string += '{}Healing: {:04.2f} - {:04.2f}\n'.format(tabs, self.healing[0], self.healing[1])
+        string = '{}Win Rate:  {:04.2f}% - {:04.2f}%\n'\
+            .format(tabs, self.win_rate[0], self.win_rate[1])
+        string += '{}Play Rate: {:04.2f}% - {:04.2f}%\n'\
+            .format(tabs, self.play_rate[0], self.play_rate[1])
+        string += '{}Ban Rate:  {:04.2f}% - {:04.2f}%\n\n'\
+            .format(tabs, self.ban_rate[0], self.ban_rate[1])
+
+        string += '{}Kills:   {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.kda_triple[0][0], self.kda_triple[1][0])
+        string += '{}Deaths:  {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.kda_triple[0][1], self.kda_triple[1][1])
+        string += '{}Assists: {:04.2f} - {:04.2f}\n\n'\
+            .format(tabs, self.kda_triple[0][2], self.kda_triple[1][2])
+
+        string += '{}Gold Earned: {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.gold_earned[0], self.gold_earned[1])
+        string += '{}Minions:     {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.minions_triple[0][0], self.minions_triple[1][0])
+        string += '{}Monsters in Ally Jungle:  {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.minions_triple[0][1], self.minions_triple[1][1])
+        string += '{}Monsters in Enemy Jungle: {:04.2f} - {:04.2f}\n\n'\
+            .format(tabs, self.minions_triple[0][2], self.minions_triple[1][2])
+
+        string += '{}Damage Dealt:   {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.damage_dealt[0], self.damage_dealt[1])
+        string += '{}Damage Taken:   {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.damage_taken[0], self.damage_taken[1])
+        string += '{}Killing Sprees: {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.killing_sprees[0], self.killing_sprees[1])
+        string += '{}Total Healing:  {:04.2f} - {:04.2f}\n'\
+            .format(tabs, self.healing[0], self.healing[1])
         return string
 
 
@@ -91,19 +133,24 @@ class LolChampionStatsNormalized:
 
     def to_str(self, depth=0):
         tabs = '\t' * depth
-        string = '{}Win Rate: {:04.2f}%, Play Rate: {:04.2f}%, Ban Rate: {:04.2f}%\n'\
-            .format(tabs, self.win_rate, self.play_rate, self.ban_rate)
-        string += '{}Average Game Score: {:04.2f}\n'.format(tabs, self.average_game_score)
-        string += '{}Kills/Deaths/Assists: {:04.2f}/{:04.2f}/{:04.2f}, KDA: {:04.2f}\n'\
-            .format(tabs, self.kda_triple[0], self.kda_triple[1], self.kda_triple[2], self.kda)
+        string = '{}Win Rate:  {:04.2f}\n'.format(tabs, self.win_rate)
+        string += '{}Play Rate: {:04.2f}\n'.format(tabs, self.play_rate)
+        string += '{}Ban Rate:  {:04.2f}\n'.format(tabs, self.ban_rate)
+        string += '{}Average Game Score: {:04.2f}\n\n'.format(tabs, self.average_game_score)
+        string += '{}Kills:   {:04.2f}\n'.format(tabs, self.kda_triple[0])
+        string += '{}Deaths:  {:04.2f}\n'.format(tabs, self.kda_triple[1])
+        string += '{}Assists: {:04.2f}\n'.format(tabs, self.kda_triple[2])
+        string += '{}KDA: {:04.2f}\n\n'.format(tabs, self.kda)
+
         string += '{}Gold Earned: {:04.2f}\n'.format(tabs, self.gold_earned)
         string += '{}Minions: {:04.2f}\n'.format(tabs, self.minions_triple[0])
-        string += '{}Monsters in Ally Jungle: {:04.2f}\n'.format(tabs, self.minions_triple[1])
-        string += '{}Monsters in Enemy Jungle: {:04.2f}\n'.format(tabs, self.minions_triple[2])
-        string += '{}Damage Dealt: {:04.2f}\n'.format(tabs, self.total_damage_dealt)
-        string += '{}Damage Taken: {:04.2f}\n'.format(tabs, self.total_damage_taken)
+        string += '{}Monsters in Ally Jungle:  {:04.2f}\n'.format(tabs, self.minions_triple[1])
+        string += '{}Monsters in Enemy Jungle: {:04.2f}\n\n'.format(tabs, self.minions_triple[2])
+
+        string += '{}Damage Dealt:   {:04.2f}\n'.format(tabs, self.total_damage_dealt)
+        string += '{}Damage Taken:   {:04.2f}\n'.format(tabs, self.total_damage_taken)
         string += '{}Killing Sprees: {:04.2f}\n'.format(tabs, self.killing_sprees)
-        string += '{}Healing: {:04.2f}\n'.format(tabs, self.total_heal)
+        string += '{}Total Healing:  {:04.2f}\n'.format(tabs, self.total_heal)
         return string
 
 
@@ -120,9 +167,12 @@ class LoLChampionStatsDamageComposition:
     def to_str(self, depth=0):
         tabs = '\t' * depth
         string = '{}Total Damage: {:04.2f}\n'.format(tabs, self.total)
-        string += '\t{}Physical: {:04.2f} ({:04.2f}%)\n'.format(tabs, self.total_physical, self.percent_physical)
-        string += '\t{}Magical: {:04.2f} ({:04.2f}%)\n'.format(tabs, self.total_magical, self.percent_magical)
-        string += '\t{}True: {:04.2f} ({:04.2f}%)\n'.format(tabs, self.total_true, self.percent_true)
+        string += '\t{}{:<10}{:04.2f} ({:04.2f}%)\n'\
+            .format(tabs, 'Physical:', self.total_physical, self.percent_physical)
+        string += '\t{}{:<10}{:04.2f} ({:04.2f}%)\n'\
+            .format(tabs, 'Magical:', self.total_magical, self.percent_magical)
+        string += '\t{}{:<10}{:04.2f} ({:04.2f}%)\n'\
+            .format(tabs, 'True:', self.total_true, self.percent_true)
         return string
 
 
@@ -167,25 +217,35 @@ class LoLChampionStats:
             .format(tabs, self.games_played, self.percent_role_played,
                     Lv.ch_gg_roles_string_map[self.role])
         string += '{}Average Games Played by an Average User: {:04.2f}\n\n'.format(tabs, self.average_games)
-        string += '{}Win Rate: {:04.2f}%, Play Rate: {:04.2f}%, Ban Rate: {:04.2f}%\n'\
-            .format(tabs, self.win_rate, self.play_rate, self.ban_rate)
+        string += '{}Win Rate:  {:04.2f}%\n'.format(tabs, self.win_rate)
+        string += '{}Play Rate: {:04.2f}%\n'.format(tabs, self.play_rate)
+        string += '{}Ban Rate:  {:04.2f}%\n'.format(tabs, self.ban_rate)
         string += '{}Average Overall Performance Score: {:04.2f}\n'.format(tabs, self.overall_performance)
-        string += '{}Average Kills/Deaths/Assists: {:04.2f}/{:04.2f}/{:04.2f}, KDA: {:04.2f}\n'.format(tabs, self.kda_triple[0], self.kda_triple[1], self.kda_triple[2], self.kda)
+        string += '{}Kills:   {:04.2f}\n'.format(tabs, self.kda_triple[0])
+        string += '{}Deaths:  {:04.2f}\n'.format(tabs, self.kda_triple[1])
+        string += '{}Assists: {:04.2f}\n'.format(tabs, self.kda_triple[2])
+        string += '{}KDA:     {:04.2f}\n\n'.format(tabs, self.kda)
+
         string += '{}Average Gold Earned: {:04.2f}\n'.format(tabs, self.gold_earned)
         string += '{}Average Minions: {:04.2f}\n'.format(tabs, self.minions_triple[0])
-        string += '{}Average Monsters in Ally Jungle: {:04.2f}\n'.format(tabs, self.minions_triple[1])
-        string += '{}Average Monsters in Enemy Jungle: {:04.2f}\n'.format(tabs, self.minions_triple[2])
+        string += '{}Average Monsters in Ally Jungle:  {:04.2f}\n'\
+            .format(tabs, self.minions_triple[1])
+        string += '{}Average Monsters in Enemy Jungle: {:04.2f}\n\n'\
+            .format(tabs, self.minions_triple[2])
+
         string += 'Average {}'.format(self.damage_composition.to_str(depth))
-        string += '{}Average Damage Taken: {:04.2f}\n'.format(tabs, self.total_damage_taken)
-        string += '{}Average Killing Sprees: {:04.2f}, Largest: {:04.2f}\n'\
-            .format(tabs, self.killing_sprees, self.largest_killing_spree)
+        string += '{}Average Damage Taken:   {:04.2f}\n'.format(tabs, self.total_damage_taken)
+        string += '{}Largest Killing Spree:  {}\n'.format(tabs, self.largest_killing_spree)
+        string += '{}Average Killing Sprees: {:04.2f}\n'\
+            .format(tabs, self.killing_sprees)
         string += '{}Average Healing: {:04.2f}\n'.format(tabs, self.total_heal)
-        string += '{}Average Wards Placed: {:04.2f}, Wards Killed: {:04.2f}\n'\
-            .format(tabs, self.wards_pair[0], self.wards_pair[1])
+        string += '{}Average Wards Placed: {:04.2f}\n'.format(tabs, self.wards_pair[0])
+        string += '{}Average Wards Killed: {:04.2f}\n'.format(tabs, self.wards_pair[1])
         strings.append(string)
 
         if use_norm:
-            string = '{}Normalized Stats\n'.format(tabs)
+            string = '{}Normalized Stats (Compared to other {})\n'\
+                .format(tabs, Lv.ch_gg_roles_string_map[self.role])
             string += '{}'.format(self.normalized.to_str(depth))
             strings.append(string)
 
@@ -195,7 +255,8 @@ class LoLChampionStats:
             strings.append(string)
 
         if use_pos:
-            string = '{}Positional Stats\n'.format(tabs)
+            string = '{}Positional Stats (Ranked relative to other {})\n'\
+                .format(tabs, Lv.ch_gg_roles_string_map[self.role])
             string += '{}'.format(self.positions_pair.to_str(depth))
             strings.append(string)
         return strings
