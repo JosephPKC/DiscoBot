@@ -16,9 +16,7 @@ class LoLMatchTimelineEvent:
     def to_str(self, depth=0):
         tabs = '\t' * depth
         team_string = '1' if self.team_id == 100 else '2'
-        time = self.time_stamp / 1000 / 60
-        mins = int(time)
-        secs = int(time % 1 * 60)
+        mins, secs = Lv.get_mins_secs_from_time_stamp(self.time_stamp)
         string = '{}@{}:{:02d}\n'.format(tabs, mins, secs)
         string += '{}Team {} '.format(tabs, team_string)
         if self.event_type == 'CHAMPION_KILL':
@@ -66,7 +64,7 @@ class LoLMatchTimeline:
         strings.append(string)
         string = ''
         for i, e in enumerate(self.events_list):
-            string += '{}\n'.format(e.to_str(depth + 1))
+            string += '{}\n'.format(e.to_str(depth))
             if i % Lv.split_match_timeline >= Lv.split_match_timeline - 1:
                 strings.append(string)
                 string = ''

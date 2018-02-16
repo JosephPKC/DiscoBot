@@ -21,8 +21,8 @@ except ImportError:
 from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager, DataDragonManager
 from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed, \
-    LoLMatchTimeline, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
-    LoLStatus, LoLMatchSpectator, LoLChampion
+    LoLMatchTimeline, LoLBuildOrder, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
+    LoLStatus, LoLMatchSpectator, LoLChampion, LoLItem
 # endregion
 
 
@@ -54,14 +54,20 @@ class DiscoLoLCog:
                  pass_context=True, help='Show commands.')
     async def help(self, ctx):
         print('Command: {}'.format(ctx.command))
+        lol_commands = ['player', 'matchlist', 'match', 'timeline', 'buildorder', 'masteries', 'mastery', 'totalmastery', 'challengers', 'masters', 'status', 'spectate', 'champion', 'skins']
         # A special command that simply displays all of the command usages.
-        msg = await self.__bot.say('You invoked the help command. <:dab:390040479951093771>')
+        help = ''
+        for c in lol_commands:
+            help += '{} - {}\n\n'.format(self.__get_command_usage(c), self.__get_command_description(c))
+        msg = await self.__bot.say('```{}```'.format(help))
         for e in self.__bot.get_all_emojis():
             if e.name == 'hellyeah':
                 await self.__bot.add_reaction(msg, e)
             elif e.name == 'dorawinifred':
                 await self.__bot.add_reaction(msg, e)
             elif e.name == 'cutegroot':
+                await self.__bot.add_reaction(msg, e)
+            elif e.name == 'dab':
                 await self.__bot.add_reaction(msg, e)
 
     @lol.command(name='player', aliases=['summoner'],
@@ -207,6 +213,7 @@ class DiscoLoLCog:
             cached = self.__create_match_detailed(region, match)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
+        await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id)))
         for s in cached.to_str(use_rune, use_detail, use_timeline):
             await self.__bot.say('```{}```'.format(s))
 
@@ -259,6 +266,56 @@ class DiscoLoLCog:
             cached = self.__create_match_timeline(region, match_id, timeline)
             self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
         # Display Storage Structure
+        await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id)))
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
+
+    @lol.command(name='buildorder', aliases=[],
+                 pass_context=True, help='Get build order.')
+    async def buildorder(self, ctx, *, cmd_input: str=None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('buildorder'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) < 2 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('buildorder'))
+            return
+        # Get inputs
+        name = inputs[0]
+        match_id = inputs[1]
+        # Get and Check Region
+        _, region, _ = self.__parse_args(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__bot.say('Region **{}** not found.'.format(region))
+            return
+        region = region_temp
+        # Check match id
+        try:
+            match_id = int(match_id)
+        except TypeError:
+            await self.__bot.say('Second parameter must be a number.')
+            return
+        if int(match_id) < 1000:
+            match_id = await self.__find_match_id(region, name, match_id)
+
+        # Check Cache
+        str_key = (region, match_id, Gv.CacheKeyType.STR_LOL_BUILD_ORDER)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data Objects via API
+            timeline = self.__find_match_timeline(region, match_id)
+            if timeline is None:
+                await self.__bot.say('Match **{}** not found in region **{}**.'
+                                     .format(match_id, region))
+                return
+            # Create and Cache Storage Structure
+            cached = self.__create_build_order(region, name, match_id, timeline)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        await self.__bot.say('Link: {}\n'.format(Lv.get_match_history_url(region, cached.match_id, cached.player_id)))
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
 
@@ -661,6 +718,81 @@ class DiscoLoLCog:
             if title == 'default':
                 title = 'Default'
             await self.__bot.say('{}\n{}\n'.format(title, a[1]))
+
+    @lol.command(name='icon', aliases=[],
+                 pass_context=True, help='Get profile icon.')
+    async def icon(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        # Parse into Inputs and Args
+        if cmd_input is None:
+            use_random = True
+            icon_id = 0
+        else:
+            use_random = False
+            inputs, _ = self.__parse_inputs_and_args(cmd_input)
+            icon_id = inputs[0]
+
+        url = self.__data_dragon.get_profile_icon(icon_id, use_random)
+        if url is None:
+            await self.__bot.say('**{}** does not exist.'.format(icon_id))
+            return
+        # Display Storage Structure
+        await self.__bot.say(url)
+
+    @lol.command(name='emote', aliases=[],
+                 pass_context=True, help='Get emote.')
+    async def emote(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        # Parse into Inputs and Args
+        if cmd_input is None:
+            use_random = True
+            icon_id = 0
+        else:
+            use_random = False
+            inputs, _ = self.__parse_inputs_and_args(cmd_input)
+            icon_id = inputs[0]
+
+        url = self.__data_dragon.get_profile_icon(icon_id, use_random)
+        if url is None:
+            await self.__bot.say('**{}** does not exist.'.format(icon_id))
+            return
+        # Display Storage Structure
+        await self.__bot.say(url)
+
+    @lol.command(name='item', aliases=[],
+                 pass_context=True, help='Get item info.')
+    async def item(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('item'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('item'))
+            return
+        name = inputs[0]
+
+        # Check Cache
+        str_key = (name, Gv.CacheKeyType.STR_LOL_ITEM)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            item_id = self.__database.select_lol_item_inverted(name)
+            if item_id is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            item = self.__data_dragon.get_item(item_id)
+            art = '{}{}{}{}.png'.format(Lv.base_url, self.__data_dragon.get_current_patch(),
+                                        Lv.item_art_url_part, item_id)
+            # Create and Cache Storage Structure
+            cached = self.__create_item(item_id, item, art)
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        await self.__bot.say(cached.art)
+        for s in cached.to_str():
+            await self.__bot.say('```{}```'.format(s))
+
     # endregion
 
     # region Command Helpers
@@ -714,6 +846,7 @@ class DiscoLoLCog:
     @staticmethod
     def __create_spectate_bat(region, encryption_key, match_id):
         name = 'spectate_{}.bat'.format(match_id)
+        spectate_info = Lv.regions_spectate_list_map[region]
         with open('data/spectate/{}'.format(name), 'w')as file:
             file.write(
                 '@cd /d \"C:\\Riot Games\\League of Legends\\'
@@ -721,10 +854,11 @@ class DiscoLoLCog:
                 '0.0.1.202\\deploy\"\n'
                 '\tif exist \"League of Legends.exe\" (\n'
                 '\t\t@start \"\" \"League of Legends.exe\" \"8394\" \"LoLLauncher.exe\" \"\"'
-                ' \"spectator spectator.{}.lol.riotgames.com:80'
+                ' \"spectator spectator.{}.lol.riotgames.com:{}'
                 ' {} {} {}" "-UseRads\"\n'
-                '\t\tgoto :eof\n\t)\n'.format(Lv.regions_spectate_string_map[region],
-                                              encryption_key, match_id, region.upper())
+                '\t\tgoto :eof\n\t)\n'
+                    .format(spectate_info[1], spectate_info[2],
+                            encryption_key, match_id, spectate_info[0])
             )
         return 'data/spectate/' + name
     # endregion
@@ -1074,7 +1208,6 @@ class DiscoLoLCog:
                 rune_vars.append([v, val])
                 did_sec = True
             elif rune_results['hasPerfectVar']:
-                print('time var')
                 val = 'Perfect'
                 rune_vars.append([v, val])
             elif not did_time or not did_percent or not did_sec:
@@ -1209,6 +1342,39 @@ class DiscoLoLCog:
 
         return LoLMatchTimeline.LoLMatchTimelineEvent(
             event['type'], event['timestamp'], description, killer, None, [], team
+        )
+
+    def __create_build_order(self, region, name, match_id, timeline):
+        match = self.__find_match(region, match_id)
+        participant_id = 0
+        participant_name = None
+        summoner_id = 0
+        for p in match['participantIdentities']:
+            if p['player']['summonerName'].lower() == name.lower():
+                participant_id = p['participantId']
+                participant_name = p['player']['summonerName']
+                summoner_id = p['player']['summonerId']
+                break
+        if participant_id == 0:
+            print('{} not found in match {}.'.format(name, match_id))
+
+
+
+        champion_id = match['participants'][participant_id - 1]['championId']
+        champion = self.__database.select_lol_champion(champion_id)
+
+        events = []
+        for f in timeline['frames']:
+            for e in f['events']:
+                if (e['type'] == 'ITEM_PURCHASED' or e['type'] == 'ITEM_DESTROYED') \
+                        and e['participantId'] == participant_id:
+                    item = self.__database.select_lol_item(e['itemId'])
+                    events.append(LoLBuildOrder.LoLBuildOrderEvent(
+                        e['type'], e['timestamp'], item
+                    ))
+
+        return LoLBuildOrder.LoLBuildOrder(
+            region, participant_name, summoner_id, match_id, champion, events
         )
 
     def __create_masteries(self, region, masteries, player):
@@ -1348,6 +1514,26 @@ class DiscoLoLCog:
             [data['allytips'], data['enemytips']], data['tags'], champ_stats, spells,
             '', official
         )
+
+    def __create_item(self, item_id, data, art):
+        description = self.__clean_description(data['description'])
+
+        builds_from = []
+        if 'from' in data.keys():
+            for b in data['from']:
+                item = self.__database.select_lol_item(b)
+                builds_from.append(item)
+
+        builds_to = []
+        if 'into' in data.keys():
+            for b in data['into']:
+                item = self.__database.select_lol_item(b)
+                builds_to.append(item)
+
+        return LoLItem.LoLItem(
+            data['name'], item_id, data['plaintext'], description, data['gold']['base'],
+            data['gold']['total'], data['gold']['sell'], builds_from, builds_to, art
+        )
     # endregion
 
     # region Parsing
@@ -1408,20 +1594,25 @@ class DiscoLoLCog:
         return player_index, team_index
 
     @staticmethod
-    def __parse_spell_description(spell, effects, vars,):
-        description = spell
-        description = re.sub('<br><br>', '\n\t', description)
-        description = re.sub('<br>', '\n\t', description)
-        description = re.sub('<br /><br />', '\n\t', description)
-        description = re.sub('<br />', '\n\t', description)
+    def __clean_description(description, tabs=False):
+        description = re.sub('<br ?\/?>(<br ?\/?>)*', '\n\t' if tabs else '\n', description)
+        # description = re.sub('<br? ?/>', '\n\t', description)
+        return re.sub('<[a-zA-Z0-9 #=\'\"/]*>', '', description)
 
-        description = re.sub('<[a-zA-Z0-9 #=\'\"/]*>', '', description)
+    def __parse_spell_description(self, spell, effects, vars):
+        description = self.__clean_description(spell, True)
+        # description = spell
+        # description = re.sub('<br><br>', '\n\t', description)
+        # description = re.sub('<br>', '\n\t', description)
+        # description = re.sub('<br /><br />', '\n\t', description)
+        # description = re.sub('<br />', '\n\t', description)
+        #
+        # description = re.sub('<[a-zA-Z0-9 #=\'\"/]*>', '', description)
         # description = re.sub('</[a-zA-Z0-9]*>', '', description)
         # description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
         # description = re.sub('<span class="[a-zA-Z0-9]*">', '', description)
         # description = re.sub('<span class=\"[a-zA-Z0-9]*\">', '', description)
         # description = re.sub('<span class="size\d* color[a-zA-Z0-9]*">\d*', '', description)
-
 
         for i, e in enumerate(effects):
             if e is not None:
@@ -1439,7 +1630,7 @@ class DiscoLoLCog:
             return 'player *name* [{}r{}*region*]'\
                 .format(prefix, value_prefix)
         elif command == 'matchlist':
-            return 'matchlist *name* [{}r{}*region*] [{]a{}*amount* 1-20]'\
+            return 'matchlist *name* [{}r{}*region*] [{}a{}*amount* 1-20]'\
                 .format(prefix, value_prefix, prefix, value_prefix)
         elif command == 'match':
             return 'match *id*|*name* *index* [{}r{}*region*] [{}rd] [{}d] [{}t]'\
@@ -1475,8 +1666,52 @@ class DiscoLoLCog:
             return 'champion *name* [{}l] [{}t] [{}a]' \
                 .format(prefix, prefix, prefix)
         elif command == 'skins':
-            return 'skins *name*' \
-                .format(prefix, prefix, prefix)
+            return 'skins *name*'
+        elif command == 'icon':
+            return 'icon [*id*]'
+        elif command == 'emote':
+            return 'emote [*id*]'
+        elif command == 'item':
+            return 'item *name*'
+        else:
+            return ''
+
+    @staticmethod
+    def __get_command_description(command):
+        if command == 'player':
+            return 'Get information on given player.'
+        elif command == 'matchlist':
+            return 'Get most recent matches for given player.'
+        elif command == 'match':
+            return 'Get details on given match.'
+        elif command == 'timeline':
+            return 'Get event timeline for given match.'
+        elif command == 'buildorder':
+            return 'Get build timeline for a given player in a given match.'
+        elif command == 'masteries':
+            return 'Get top/bottom champion masteries for given player.'
+        elif command == 'mastery':
+            return 'Get mastery info for given player and champion.'
+        elif command == 'totalmastery':
+            return 'Get total mastery score for given player.'
+        elif command == 'challengers':
+            return 'Get top challengers in a given queue.'
+        elif command == 'masters':
+            return 'Get top masters in a given queue.'
+        elif command == 'status':
+            return 'Get status of servers.'
+        elif command == 'spectate':
+            return 'Get details on a current match for given player.'
+        elif command == 'champion':
+            return 'Get details on given champion.'
+        elif command == 'skins':
+            return 'Get skin urls for given champion.'
+        elif command == 'icon':
+            return 'Get profile icon url.'
+        elif command == 'emote':
+            return 'Get emote url.'
+        elif command == 'item':
+            return 'Get details on given item.'
         else:
             return ''
 

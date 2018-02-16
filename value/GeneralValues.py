@@ -38,6 +38,10 @@ class CacheKeyType(Enum):
     STR_LOL_CHAMPION = 23
     API_LOL_CHAMPION = 24
     STR_LOL_CHAMPION_ART = 25
+    STR_LOL_BUILD_ORDER = 26
+    API_LOL_PROFILE_ICONS = 27
+    STR_LOL_ITEM = 28
+    API_LOL_ITEM = 29
 # endregion
 
 

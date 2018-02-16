@@ -278,9 +278,9 @@ class LoLMatchDetailed:
         strings.append(string)
 
         team1 = self.team_pair[0].\
-            to_str(use_runes, use_details, use_timeline, depth + 1)
+            to_str(use_runes, use_details, use_timeline, depth)
         team2 = self.team_pair[1].\
-            to_str(use_runes, use_details, use_timeline, depth + 1)
+            to_str(use_runes, use_details, use_timeline, depth)
         string = '{}Team 1:\n{}\n'.format(tabs, team1[0])
         strings.append(string)
 
