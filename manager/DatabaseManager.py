@@ -104,6 +104,39 @@ class DatabaseManager:
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
         return cached[0]
 
+    def select_lol_champion_inverted(self, champion_name):
+        if champion_name is None:
+            return None
+        cur = self.__lol_con.cursor()
+        clean_name = champion_name.lower().replace(' ', '')
+        query = 'SELECT Id FROM Champions WHERE ' \
+                'replace(lower(Name), \' \', \'\') = \'{}\';' \
+            .format(clean_name)
+        cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
+        if cached is None:
+            cur.execute(query)
+            cached = cur.fetchone()
+            if cached is None:
+                print('Nothing found with {}'.format(query))
+                return None
+            self.__cache.add(query, cached, CacheManager.CacheType.DB)
+        return cached[0]
+
+    def select_lol_champion_json(self, champion_id):
+        if champion_id is None:
+            return None
+        cur = self.__lol_con.cursor()
+        query = 'SELECT Name, JsonName FROM Champions WHERE Id = {};'.format(champion_id)
+        cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
+        if cached is None:
+            cur.execute(query)
+            cached = cur.fetchone()
+            if cached is None:
+                print('Nothing found with {}'.format(query))
+                return None
+            self.__cache.add(query, cached, CacheManager.CacheType.DB)
+        return cached[1] if cached[1] is not None else cached[0]
+
     def select_lol_champion_json_inverted(self, champion_name):
         if champion_name is None:
             return None
@@ -122,23 +155,20 @@ class DatabaseManager:
             self.__cache.add(query, cached, CacheManager.CacheType.DB)
         return cached[1] if cached[1] is not None else cached[0]
 
-    def select_lol_champion_inverted(self, champion_name):
-        if champion_name is None:
-            return None
-        cur = self.__lol_con.cursor()
-        clean_name = champion_name.lower().replace(' ', '')
-        query = 'SELECT Name, JsonName FROM Champions WHERE ' \
-                'replace(lower(Name), \' \', \'\') = \'{}\';' \
-            .format(clean_name)
-        cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
-        if cached is None:
-            cur.execute(query)
-            cached = cur.fetchone()
-            if cached is None:
-                print('Nothing found with {}'.format(query))
-                return None
-            self.__cache.add(query, cached, CacheManager.CacheType.DB)
-        return cached[0]
+    # def select_lol_champion_chgg(self, champion_id):
+    #     if champion_id is None:
+    #         return None
+    #     cur = self.__lol_con.cursor()
+    #     query = 'SELECT Name, ChGGName FROM Champions WHERE Id = {};'.format(champion_id)
+    #     cached = self.__cache.retrieve(query, CacheManager.CacheType.DB)
+    #     if cached is None:
+    #         cur.execute(query)
+    #         cached = cur.fetchone()
+    #         if cached is None:
+    #             print('Nothing found with {}'.format(query))
+    #             return None
+    #         self.__cache.add(query, cached, CacheManager.CacheType.DB)
+    #     return cached[0] if cached[1] is None else cached[1]
 
     def select_lol_summoner_spell(self, summoner_spell_id):
         if summoner_spell_id is None:

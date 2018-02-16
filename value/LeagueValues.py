@@ -4,6 +4,7 @@ version_file = 'versions.json'
 version_path = 'data\\json\\versions.json'
 champions_path = 'champions\\'
 profile_icons_path = 'profile_icons.json'
+emotes_path = 'emotes.json'
 items_path = 'items.json'
 # endregion
 
@@ -12,12 +13,15 @@ base_official_champion_url = 'https://na.leagueoflegends.com/en/game-info/champi
 base_wiki_champion_url =  'http://leagueoflegends.wikia.com/wiki/'
 base_match_history_url = 'http://matchhistory.'
 base_match_history_url_extension = '.leagueoflegends.com/en/#match-details/'
+base_champion_gg_url = 'http://champion.gg/champion/'
 
 base_url = 'http://ddragon.leagueoflegends.com/cdn/'
 version_url = 'https://ddragon.leagueoflegends.com/api/versions.json'
 
 profile_icon_json_url_part = '/data/en_US/profileicon.json'
 profile_icon_url_part = '/img/profileicon/'
+emote_json_url_part = '/data/en_US/sticker.json'
+emote_url_part = '/img/sticker/'
 champion_url_part = '/data/en_US/champion/'
 champion_art_url_part = 'img/champion/splash/'
 item_url_part = '/data/en_US/item.json'
@@ -30,6 +34,7 @@ default_recent_matches_amount = 10
 default_match_index = 1
 default_masteries_amount = 10
 default_best_players_amount = 100
+default_elo = 'platplus'
 # endregion
 
 # region Ranges
@@ -127,6 +132,13 @@ roles_string_map = {
     'SOLO': 'Solo',
     'DUO': 'Duo'
 }
+ch_gg_roles_string_map = {
+    'DUO_SUPPORT': 'Support',
+    'DUO_CARRY': 'Carry',
+    'MIDDLE': 'Middle',
+    'TOP': 'Top',
+    'JUNGLE': 'Jungle'
+}
 
 events_string_map = {
     'NEXUS_TURRET': 'Nexus Tower',
@@ -154,6 +166,25 @@ spell_effect_burn_map = {
     'health': 'HP',
     'bonushealth': 'Bonus HP',
     '@special.dariusr3': ''
+}
+
+elo_strings_map = {
+    'platplus': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'bronze': 'BRONZE',
+    'silver': 'SILVER',
+    'gold': 'GOLD',
+    'platinum': 'PLATINUM',
+    'diamond': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'master': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'challenger': 'PLATINUM,DIAMOND,MASTER,CHALLENGER'
+}
+
+elo_string_map_inverted = {
+    'PLATINUM,DIAMOND,MASTER,CHALLENGER': 'platplus',
+    'PLATINUM': 'plat',
+    'GOLD': 'gold',
+    'SILVER': 'silver',
+    'BRONZE': 'bronze'
 }
 # endregion
 

@@ -69,6 +69,31 @@ class DataDragonManager:
         return '{}{}{}{}.png'.format(Lv.base_url, self.__current_patch,
                                      Lv.profile_icon_url_part, icon_id)
 
+    def get_emote(self, emote_id, use_random=False):
+        json_url = '{}{}{}'.format(Lv.base_url, self.__current_patch,
+                                     Lv.emote_json_url_part)
+        path = '{}_{}'.format(self.__current_patch, Lv.emotes_path)
+        api_key = (self.__current_patch, Gv.CacheKeyType.API_LOL_EMOTES)
+        cached = self.__cache.retrieve(api_key, CacheManager.CacheType.API)
+        if cached is None:
+            # Download file
+            try:
+                self.__file.download_file(Gv.FileType.JSON, path, json_url)
+            except requests.HTTPError as e:
+                print('HTTP ERROR: {}'.format(e))
+                return None
+            # Open file
+            cached = self.__file.load_json(path)['data']
+            self.__cache.add(api_key, cached, CacheManager.CacheType.API)
+        if use_random:
+            size = len(cached.keys())
+            index = int(random.random() * (size - 1))
+            emote_id = list(cached.keys())[index]
+        elif emote_id not in cached:
+            return None
+        return '{}{}{}{}.png'.format(Lv.base_url, self.__current_patch,
+                                     Lv.emote_url_part, emote_id)
+
     def get_item(self, item_id):
         # Will return a dictionary containing the json data, and a list of image urls
         url = '{}{}{}'.format(Lv.base_url, self.__current_patch,

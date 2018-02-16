@@ -22,7 +22,7 @@ from value import GeneralValues as Gv, LeagueValues as Lv
 from manager import CacheManager, DatabaseManager, FileManager, DataDragonManager
 from structure import LoLPlayer, LoLMatchList, LoLMatchDetailed, \
     LoLMatchTimeline, LoLBuildOrder, LoLMasteries, LoLTotalMastery, LoLBestPlayers, \
-    LoLStatus, LoLMatchSpectator, LoLChampion, LoLItem
+    LoLStatus, LoLMatchSpectator, LoLChampion, LoLItem, LoLChampionStats
 # endregion
 
 
@@ -35,7 +35,7 @@ class DiscoLoLCog:
             return
         self.__bot = bot
         self.__watcher = riotwatcher.RiotWatcher(riot_key)
-        self.ch_gg_key = ch_gg_key
+        py_gg.init(ch_gg_key)
         self.__file = file
         self.__cache = cache
         self.__database = database
@@ -645,9 +645,9 @@ class DiscoLoLCog:
             return
         name = inputs[0]
         # Get and Check Flags
-        use_lore, _, others = self.__parse_args(args, 'l', True)
-        use_tips, _, others = self.__parse_args(args, 't', True)
-        use_art, _, _ = self.__parse_args(args, 'a', True)
+        use_lore, _, others = self.__parse_args(args, 'l')
+        use_tips, _, others = self.__parse_args(others, 't')
+        use_art, _, _ = self.__parse_args(others, 'a')
 
         # Check Cache
         str_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION)
@@ -743,6 +743,8 @@ class DiscoLoLCog:
                  pass_context=True, help='Get emote.')
     async def emote(self, ctx, *, cmd_input: str = None):
         print('Command: {}'.format(ctx.command))
+        await self.__bot.say('Emotes are currently not supported in Datadragon. Thus, this command won\'t work.')
+        return
         # Parse into Inputs and Args
         if cmd_input is None:
             use_random = True
@@ -752,7 +754,7 @@ class DiscoLoLCog:
             inputs, _ = self.__parse_inputs_and_args(cmd_input)
             icon_id = inputs[0]
 
-        url = self.__data_dragon.get_profile_icon(icon_id, use_random)
+        url = self.__data_dragon.get_emote(icon_id, use_random)
         if url is None:
             await self.__bot.say('**{}** does not exist.'.format(icon_id))
             return
@@ -793,9 +795,73 @@ class DiscoLoLCog:
         for s in cached.to_str():
             await self.__bot.say('```{}```'.format(s))
 
+    # Commands that use Champion GG API
+    @lol.command(name='stats', aliases=['top'],
+                 pass_context=True, help='Get champion stats.')
+    async def stats(self, ctx, *, cmd_input: str = None):
+        print('Command: {}'.format(ctx.command))
+        if cmd_input is None:
+            await self.__bot.say(self.__get_command_usage('best'))
+            return
+        # Parse into Inputs and Args
+        inputs, args = self.__parse_inputs_and_args(cmd_input)
+        if len(inputs) == 0 or inputs[0] == '':
+            await self.__bot.say(self.__get_command_usage('best'))
+            return
+        name = inputs[0]
+        # Get and Check Flags
+        _, elo, others = self.__parse_args(args, 'e', True)
+        elo_temp = self.__get_elo(elo)
+        if elo_temp is None:
+            await self.__bot.say('**{}** does not exist.'.format(elo))
+            return
+        elo = elo_temp
+        use_pos, _, others = self.__parse_args(others, 'p')
+        use_norm, _, others = self.__parse_args(others, 'n')
+        use_min_max, _, _ = self.__parse_args(others, 'm')
+        # Check Cache
+        str_key = (name, Gv.CacheKeyType.STR_LOL_CHAMPION)
+        cached = self.__cache.retrieve(str_key, CacheManager.CacheType.STR)
+        if cached is None:
+            # Get Data via API
+            champion_id = self.__database.select_lol_champion_inverted(name)
+            if champion_id is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            champion = self.__find_champion_stats(champion_id, elo)
+            if champion is None:
+                await self.__bot.say('**{}** does not exist.'.format(name))
+                return
+            name = self.__database.select_lol_champion(champion_id)
+            ch_gg_name = self.__database.select_lol_champion_json(champion_id)
+            # Create and Cache Storage Structure
+            cached = []
+            for c in champion:
+                cached.append(self.__create_champion_stats(name, ch_gg_name, c))
+            self.__cache.add(str_key, cached, CacheManager.CacheType.STR)
+        # Display Storage Structure
+        for c in cached:
+            await self.__bot.say('Official: {}{}/{}?league={}'
+                                 .format(Lv.base_champion_gg_url, c.ch_gg_name,
+                                         Lv.ch_gg_roles_string_map[c.role],
+                                         Lv.elo_string_map_inverted[c.elo]))
+            for s in c.to_str(use_pos, use_norm, use_min_max):
+                await self.__bot.say('```{}```'.format(s))
+
     # endregion
 
     # region Command Helpers
+    @staticmethod
+    def __get_region(region):
+        if region is None:
+            return Lv.default_region
+        if region not in Lv.regions_list:
+            if region + Lv.optional_region_suffix not in Lv.regions_list:
+                return None
+            else:
+                return region + Lv.optional_region_suffix
+        return region
+
     async def __get_amount(self, amount, default_value, min_value, max_value=-1):
         error_string = 'Amount should be between {} and {}.'\
             .format(min_value, max_value) \
@@ -861,6 +927,15 @@ class DiscoLoLCog:
                             encryption_key, match_id, spectate_info[0])
             )
         return 'data/spectate/' + name
+
+    @staticmethod
+    def __get_elo(elo):
+        if elo is None:
+            return Lv.elo_strings_map[Lv.default_elo]
+        elif elo in Lv.elo_strings_map:
+            return Lv.elo_strings_map[elo]
+        else:
+            return None
     # endregion
 
     # region Retrieval, API Calls
@@ -987,6 +1062,19 @@ class DiscoLoLCog:
         api_key = (region, player_id, Gv.CacheKeyType.API_LOL_SPECTATE)
 
         def api_function(): return self.__watcher.spectator.by_summoner(region, player_id)
+        return self.__find_api(params, api_key, api_function)
+
+    def __find_champion_stats(self, champion_id, elo):
+        params = [champion_id]
+        api_key = (champion_id, Gv.CacheKeyType.API_LOL_CHAMPION_STATS)
+
+        def api_function():
+            options = {
+                'champData': 'kda,damage,averageGames,goldEarned,totalheal,sprees,minions,positions,normalized,maxMins,matchups,hashes,overallPerformanceScore,wins,wards'
+            }
+            if elo != Lv.elo_strings_map[Lv.default_elo]:
+                options['elo'] = elo
+            return py_gg.champions.specific(champion_id, options=options)
         return self.__find_api(params, api_key, api_function)
     # endregion
 
@@ -1534,6 +1622,79 @@ class DiscoLoLCog:
             data['name'], item_id, data['plaintext'], description, data['gold']['base'],
             data['gold']['total'], data['gold']['sell'], builds_from, builds_to, art
         )
+
+    def __create_champion_stats(self, name, ch_gg_name, data):
+        damage_data = data['damageComposition']
+        damage_comp = LoLChampionStats.LoLChampionStatsDamageComposition(
+            damage_data['total'], damage_data['totalPhysical'], damage_data['totalMagical'],
+            damage_data['totalTrue'], damage_data['percentPhysical'] * 100,
+            damage_data['percentMagical'] * 100, damage_data['percentTrue'] * 100
+        )
+
+        pos_data = data['positions']
+        positions = LoLChampionStats.LoLChampionStatsPosition(
+            self.__get_current_previous_diff(pos_data['winRates'], pos_data['previousWinRates']),
+            self.__get_current_previous_diff(pos_data['playRates'], pos_data['previousPlayRates']),
+            self.__get_current_previous_diff(pos_data['banRates'], pos_data['previousBanRates']),
+            [self.__get_current_previous_diff(pos_data['kills'], pos_data['previousKills']),
+             self.__get_current_previous_diff(pos_data['deaths'], pos_data['previousDeaths']),
+             self.__get_current_previous_diff(pos_data['assists'], pos_data['previousAssists'])],
+            self.__get_current_previous_diff(pos_data['minionsKilled'],
+                                             pos_data['previousMinionsKilled']),
+            self.__get_current_previous_diff(pos_data['averageGamesScore'],
+                                             pos_data['previousAverageGamesScore']),
+            pos_data['totalPositions'],
+            self.__get_current_previous_diff(pos_data['totalDamageTaken'],
+                                             pos_data['previousTotalDamageTakenPosition']),
+            self.__get_current_previous_diff(pos_data['damageDealt'],
+                                             pos_data['previousDamageDealt']),
+            self.__get_current_previous_diff(pos_data['totalHeal'], pos_data['previousTotalHeal']),
+            self.__get_current_previous_diff(pos_data['killingSprees'],
+                                             pos_data['previousKillingSprees']),
+            [pos_data['overallPerformanceScore'], pos_data['previousOverallPerformanceScore'],
+             pos_data['overallPerformanceScoreDelta']],
+            self.__get_current_previous_diff(pos_data['goldEarned'],
+                                             pos_data['previousGoldEarned']),
+        )
+
+        norm_data = data['normalized']
+        normalized = LoLChampionStats.LolChampionStatsNormalized(
+            [norm_data['kills'], norm_data['deaths'], norm_data['assists']],
+            norm_data['winRate'] * 100, norm_data['playRate'] * 100, norm_data['banRate'] * 100,
+            [norm_data['minionsKilled'], norm_data['neutralMinionsKilledTeamJungle'],
+             norm_data['neutralMinionsKilledEnemyJungle']], norm_data['goldEarned'],
+            norm_data['killingSprees'], norm_data['averageGameScore'], norm_data['totalDamageTaken'], norm_data['totalDamageDealt'], norm_data['totalHeal']
+        )
+
+        mm_data = data['maxMins']
+        min_max = LoLChampionStats.LoLChampionStatsMinMax(
+            [mm_data['minWinRate'] * 100, mm_data['maxWinRate'] * 100],
+            [mm_data['minPlayRate'] * 100, mm_data['maxPlayRate'] * 100],
+            [mm_data['minBanRate'] * 100, mm_data['maxBanRate'] * 100],
+            [[mm_data['minKills'], mm_data['minDeaths'], mm_data['minAssists']],
+             [mm_data['maxKills'], mm_data['maxDeaths'], mm_data['maxAssists']]],
+            [[mm_data['minMinionsKilled'], mm_data['minNeutralMinionsKilledTeamJungle'],
+              mm_data['minNeutralMinionsKilledEnemyJungle']],
+             [mm_data['maxMinionsKilled'],  mm_data['maxNeutralMinionsKilledTeamJungle'],
+              mm_data['maxNeutralMinionsKilledEnemyJungle']]],
+            [mm_data['minGoldEarned'], mm_data['maxGoldEarned']],
+            [mm_data['minKillingSprees'], mm_data['maxKillingSprees']],
+            [mm_data['minTotalDamageDealtToChampions'], mm_data['maxTotalDamageDealtToChampions']],
+            [mm_data['minHeal'], mm_data['maxHeal']],
+            [mm_data['minTotalDamageTaken'], mm_data['maxTotalDamageTaken']]
+        )
+        return LoLChampionStats.LoLChampionStats(
+            name, ch_gg_name, data['championId'], data['role'], data['elo'],
+            data['winRate'] * 100, data['playRate'] * 100, data['banRate'] * 100,
+            [data['kills'], data['deaths'], data['assists']], data['totalDamageTaken'],
+            [data['wardPlaced'], data['wardsKilled']], data['averageGames'],
+            data['largestKillingSpree'],
+            [data['minionsKilled'], data['neutralMinionsKilledTeamJungle'],
+             data['neutralMinionsKilledEnemyJungle']], data['gamesPlayed'],
+            data['overallPerformanceScore'], data['percentRolePlayed'] * 100,
+            data['goldEarned'], data['killingSprees'], data['totalHeal'], damage_comp,
+            positions, normalized, min_max
+        )
     # endregion
 
     # region Parsing
@@ -1568,16 +1729,8 @@ class DiscoLoLCog:
         return found, value, [a for i, a in enumerate(args) if i != index]
     # endregion
 
-    @staticmethod
-    def __get_region(region):
-        if region is None:
-            return Lv.default_region
-        if region not in Lv.regions_list:
-            if region + Lv.optional_region_suffix not in Lv.regions_list:
-                return None
-            else:
-                return region + Lv.optional_region_suffix
-        return region
+    def __get_current_previous_diff(self, current, prev):
+        return [current, prev, current - prev]
 
     @staticmethod
     def __get_indicies_from_match(player_id, match, num_of_players):
