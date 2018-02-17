@@ -1,59 +1,60 @@
-# region LoL Constants
-# region Files
-version_file = 'versions.json'
-version_path = 'data\\json\\versions.json'
+# region Constants
+# File Paths
 champions_path = 'champions\\'
-profile_icons_path = 'profile_icons.json'
-emotes_path = 'emotes.json'
-items_path = 'items.json'
-# endregion
-
-# region URLs
-base_official_champion_url = 'https://na.leagueoflegends.com/en/game-info/champions/'
-base_wiki_champion_url =  'http://leagueoflegends.wikia.com/wiki/'
-base_match_history_url = 'http://matchhistory.'
-base_match_history_url_extension = '.leagueoflegends.com/en/#match-details/'
-base_champion_gg_url = 'http://champion.gg/champion/'
-
-base_url = 'http://ddragon.leagueoflegends.com/cdn/'
-version_url = 'https://ddragon.leagueoflegends.com/api/versions.json'
-
-profile_icon_json_url_part = '/data/en_US/profileicon.json'
-profile_icon_url_part = '/img/profileicon/'
-emote_json_url_part = '/data/en_US/sticker.json'
-emote_url_part = '/img/sticker/'
+# File Path Names
+# emotes_file = 'emotes.json'
+items_file = 'items.json'
+profile_icons_file = 'profile_icons.json'
+versions_file = 'versions.json'
+# URL Bases
+champion_gg_base_url = 'http://champion.gg/champion/'
+champion_official_base_url = 'https://na.leagueoflegends.com/en/game-info/champions/'
+champion_wiki_base_url = 'http://leagueoflegends.wikia.com/wiki/'
+data_dragon_base_url = 'http://ddragon.leagueoflegends.com/cdn/'
+match_history_base_url = 'http://matchhistory.'
+versions_url = 'https://ddragon.leagueoflegends.com/api/versions.json'
+# URL Parts
 champion_url_part = '/data/en_US/champion/'
-champion_art_url_part = 'img/champion/splash/'
-item_url_part = '/data/en_US/item.json'
+champion_splash_url_part = 'img/champion/splash/'
+# emote_url_part = '/img/sticker/'
+# emotes_json_url_part = '/data/en_US/sticker.json'
 item_art_url_part = '/img/item/'
-# endregion
-
-# region Defaults
-default_region = 'na1'
-default_recent_matches_amount = 10
-default_match_index = 1
-default_masteries_amount = 10
-default_best_players_amount = 100
+items_url_part = '/data/en_US/item.json'
+match_history_url_part = '.leagueoflegends.com/en/#match-details/'
+profile_icon_url_part = '/img/profileicon/'
+profile_icons_json_url_part = '/data/en_US/profileicon.json'
+# Default Values
+default_best_players_amount = 50
+default_embed_color = 0x18719
 default_elo = 'platplus'
+default_masteries_amount = 10
+default_match_index = 1
+default_match_list_amount = 10
+default_region = 'na1'
+# Range Values
+best_players_range = [1, 200]
+masteries_range = [1, -1]
+match_index_range = [1, -1]
+match_list_range = [1, 20]
+# Split Values
+best_players_split = 20
+build_order_split = 20
+masteries_split = 20
+match_list_split = 20
+match_timeline_split = 20
+# Misc Values
+region_optional_suffix = '1'
 # endregion
 
-# region Ranges
-range_recent_matches = [1, 20]
-range_match_index = [1, -1]
-range_masteries = [1, -1]
-range_best_players = [1, 200]
+# region Enumerations
+
+
 # endregion
 
-# region Display String Split Amounts
-split_masteries = 12
-split_best_players = 20
-split_match_list = 10
-split_match_timeline = 15
-split_build_order = 25
-# endregion
 
 # region Mappings
-regions_string_map = {
+# Regions
+region_string_map = {
     'br1': 'BR',
     'eun1': 'EUN',
     'euw1': 'EUW',
@@ -67,8 +68,7 @@ regions_string_map = {
     'ru': 'RU',
     'pbe1': 'PBE'
 }
-
-regions_match_history_string_map = {
+region_match_history_string_map = {
     'br1': 'br',
     'eun1': 'eune',
     'euw1': 'euw',
@@ -81,8 +81,7 @@ regions_match_history_string_map = {
     'tr1': 'tr',
     'ru': 'ru'
 }
-
-regions_spectate_list_map = {
+region_spectate_list_map = {
     'br1': ['BR1', 'br', '80'],
     'eun1': ['EUN1', 'eu', '8088'],
     'euw1': ['EUW1', 'euw1', '80'],
@@ -96,51 +95,64 @@ regions_spectate_list_map = {
     'ru': ['RU', 'ru', '80'],
     'pbe1': ['PBE1', 'pbe', '8088']
 }
-
-queues_string_map = {
+# Queues
+queue_string_map = {
     'RANKED_FLEX_TT': 'Flex 3v3',
     'RANKED_FLEX_SR': 'Flex 5v5',
     'RANKED_SOLO_5x5': 'Solo 5v5',
     'RANKED_TEAM_3x3': 'Team 3v3',
     'RANKED_TEAM_5x5': 'Team 5v5'
 }
-
-queues_string_map_inverted = {
+queue_string_inverted_map = {
     'solosr': 'RANKED_SOLO_5x5',
     'solo': 'RANKED_SOLO_5x5',
     'flexsr': 'RANKED_FLEX_SR',
     'flextt': 'RANKED_FLEX_TT'
 }
-
-tiers_string_map = {
+# Tiers
+tier_string_map = {
     'MASTER': 'Master',
     'CHALLENGER': 'Challenger'
 }
-
-lanes_string_map = {
+# Lanes
+lane_string_map = {
     'TOP': 'Top',
     'JUNGLE': 'Jungle',
     'MID': 'Middle',
     'MIDDLE': 'Middle',
     'BOTTOM': 'Bottom'
 }
-
-roles_string_map = {
+# Roles
+role_string_map = {
     'DUO_SUPPORT': 'Support',
     'DUO_CARRY': 'Carry',
     'NONE': '',
     'SOLO': 'Solo',
-    'DUO': 'Duo'
-}
-ch_gg_roles_string_map = {
-    'DUO_SUPPORT': 'Support',
-    'DUO_CARRY': 'Carry',
+    'DUO': 'Duo',
     'MIDDLE': 'Middle',
     'TOP': 'Top',
     'JUNGLE': 'Jungle'
 }
-
-events_string_map = {
+# Elos
+elo_string_map = {
+    'PLATINUM,DIAMOND,MASTER,CHALLENGER': 'Platplus',
+    'PLATINUM': 'Plat',
+    'GOLD': 'Gold',
+    'SILVER': 'Silver',
+    'BRONZE': 'Bronze'
+}
+elo_string_inverted_map = {
+    'platplus': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'bronze': 'BRONZE',
+    'silver': 'SILVER',
+    'gold': 'GOLD',
+    'platinum': 'PLATINUM',
+    'diamond': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'master': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
+    'challenger': 'PLATINUM,DIAMOND,MASTER,CHALLENGER'
+}
+# Events
+event_string_map = {
     'NEXUS_TURRET': 'Nexus Tower',
     'MID_LANE': 'Middle Lane',
     'BOT_LANE': 'Bottom Lane',
@@ -158,8 +170,8 @@ events_string_map = {
     'RIFTHERALD': 'Rift Herald',
     'VILE_MAW': 'Vile\'Maw'
 }
-
-spell_effect_burn_map = {
+# Spell Effects
+spell_effect_string_map = {
     'attackdamage': 'AD',
     'spelldamage': 'AP',
     'bonusattackdamage': 'Bonus AD',
@@ -167,54 +179,42 @@ spell_effect_burn_map = {
     'bonushealth': 'Bonus HP',
     '@special.dariusr3': ''
 }
-
-elo_strings_map = {
-    'platplus': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
-    'bronze': 'BRONZE',
-    'silver': 'SILVER',
-    'gold': 'GOLD',
-    'platinum': 'PLATINUM',
-    'diamond': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
-    'master': 'PLATINUM,DIAMOND,MASTER,CHALLENGER',
-    'challenger': 'PLATINUM,DIAMOND,MASTER,CHALLENGER'
-}
-
-elo_string_map_inverted = {
-    'PLATINUM,DIAMOND,MASTER,CHALLENGER': 'Platplus',
-    'PLATINUM': 'Plat',
-    'GOLD': 'Gold',
-    'SILVER': 'Silver',
-    'BRONZE': 'Bronze'
-}
 # endregion
+
 
 # region Lists
-regions_list = [k for k in regions_string_map.keys()]
-queues_list = [k for k in queues_string_map.keys()]
+queues_list = [k for k in queue_string_map.keys()]
+queues_standard_list = [400, 420, 430, 440, 460, 470]
+regions_list = [k for k in region_string_map.keys()]
 # endregion
 
-# region Misc
-optional_region_suffix = '1'
-# endregion
-# endregion
 
 # region Methods
-def player_to_in_team(index, num_of_players):
-    return index % (num_of_players // 2) - 1
+# Get/Calculate/Convert (Get)
+def get_match_history_url(region, match_id, player_id=None):
+    if region == 'kr':
+        url = 'https://matchhistory.leagueoflegends.co.kr/ko/#match-details/KR/{}'.format(match_id)
+    else:
+        url = 'https://matchhistory.{}.leagueoflegends.com/en/#match-details/{}/{}'\
+            .format(region_match_history_string_map[region], region.upper(), match_id)
+    if player_id is not None:
+        url += '/{}'.format(player_id)
+    url += '?tab=overview'
+    return url
 
-def get_mins_secs_from_time_stamp(time_stamp):
+
+def get_mins_secs_from_time(time_stamp):
     time = time_stamp / 1000 / 60
     mins = int(time)
     secs = int(time % 1 * 60)
     return mins, secs
 
-def get_match_history_url(region, match_id, player_id=None):
-    if region == 'kr':
-        url = 'https://matchhistory.leagueoflegends.co.kr/ko/#match-details/KR/{}'.format(match_id)
-    else:
-        url = 'https://matchhistory.{}.leagueoflegends.com/en/#match-details/{}/{}'.format(regions_match_history_string_map[region], region.upper(), match_id)
-    if player_id is not None:
-        url += '/{}'.format(player_id)
-    url += '?tab=overview'
-    return url
+
+def get_op_gg_url(region, player_name):
+    player_name = player_name.replace(' ', '+')
+    return 'http://{}.op.gg/summoner/userName={}'.format(region_match_history_string_map[region], player_name)
+
+
+def get_player_index_in_team(player_index, number_of_players):
+    return player_index % (number_of_players // 2) - 1
 # endregion
