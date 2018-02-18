@@ -8,7 +8,7 @@ except ImportError:
     print('pip install discord.py[voice].')
     sys.exit(2)
 from cog import DiscoLoLCog
-from manager import LoLDatabase, LoLDataDragon
+from manager import LoLDatabase, LoLDataDragon, EmojiRepository
 from value import GeneralValues as Gv
 
 # Get keys from file
@@ -23,6 +23,8 @@ bot = commands.Bot(command_prefix=Gv.bot_prefix, description=Gv.bot_blurb)
 # Wait for ready
 @bot.event
 async def on_ready():
+
+    # await EmojiRepository.init(bot)
     print('Disco Bot is ready to Shurima.')
     await bot.change_presence(game=discord.Game(name=Gv.bot_game))
 # Prepare the cogs

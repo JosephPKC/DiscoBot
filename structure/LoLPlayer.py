@@ -3,12 +3,12 @@ from value import GeneralValues as Gv, LeagueValues as Lv
 
 
 class LoLPlayer:
-    def __init__(self, name, region, region_burn, icon_id, icon_url, level, ranks_list, masteries_list, recent_games,
+    def __init__(self, name, region, url, icon_id, icon_url, level, ranks_list, masteries_list, recent_games,
                  recent_wins, recent_losses, kills, deaths, assists, vision, cs):
         self.cs = cs
         self.name = name
         self.region = region
-        self.region_burn = region_burn
+        self.url = url
         self.icon_id = icon_id
         self.icon_url = icon_url
         self.level = level
@@ -25,23 +25,22 @@ class LoLPlayer:
         self.kda = (kills + assists) / (deaths + 1)
 
     def embed(self, ctx):
-        # Create Embed
         embed = Gv.create_embed(Lv.default_embed_color,
-                                'Brief overview of __**{}**__ in __**{}**__.'.format(self.name, self.region_burn),
+                                'Brief overview of __**{}**__ in __**{}**__.'.format(self.name, self.region),
                                 ctx.message.author,
                                 self.icon_url)
         # Set Author
-        embed.set_author(name='OP.GG: {}'.format(self.name), url=Lv.get_op_gg_url(self.region, self.name),
-                         icon_url='http://opgg-static.akamaized.net/images/logo/l_logo.png')
-        # SET FIELDS
+        embed.set_author(name='OP.GG: {}'.format(self.name), url=self.url,
+                         icon_url=Lv.op_gg_icon_url)
         # Basic Info: Region, Level
         embed.add_field(name='__Basic Info:__',
                         value='**Level:** {}'.format(self.level),
                         inline=False)
         # Recent Games: Games Analyzed, W/L, Win Rate
         embed.add_field(name='__Recent {} Games:__'.format(self.recent_games),
-                        value='**W/L:** {}W {}L\n**Winrate:** {:.02f}%\n'
-                              '**KDA:** {:.02f} {:.02f} {:.02f} **R:** {:.02f}\n**CS:** {:.02f}\n**Vision:** {:.02f}'
+                        value='**W/L:** {}W / {}L\n**Winrate:** {:.02f}%\n'
+                              '**KDA:** {:.02f} / {:.02f} / {:.02f} **R:** {:.02f}\n**CS:** {:.02f}\n'
+                              '**Vision:** {:.02f}'
                         .format(self.recent_wins, self.recent_losses, self.win_rate, self.kills, self.deaths,
                                 self.assists, self.kda, self.cs, self.vision),
                         inline=True)

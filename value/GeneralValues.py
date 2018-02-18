@@ -29,7 +29,7 @@ str_freshness = 15
 # region Methods
 # Calculation, Retrieval (Get)
 def get_minutes_seconds(time_in_s):
-    return time_in_s / 60, time_in_s % 60
+    return time_in_s // 60, time_in_s % 60
 
 
 # Display (Print)

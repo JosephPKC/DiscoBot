@@ -1,3 +1,4 @@
+import re
 # region Constants
 # File Paths
 champions_path = 'champions\\'
@@ -23,6 +24,8 @@ items_url_part = '/data/en_US/item.json'
 match_history_url_part = '.leagueoflegends.com/en/#match-details/'
 profile_icon_url_part = '/img/profileicon/'
 profile_icons_json_url_part = '/data/en_US/profileicon.json'
+# URL Others
+op_gg_icon_url = 'http://opgg-static.akamaized.net/images/logo/l_logo.png'
 # Default Values
 default_best_players_amount = 50
 default_embed_color = 0x18719
@@ -191,12 +194,12 @@ regions_list = [k for k in region_string_map.keys()]
 
 # region Methods
 # Get/Calculate/Convert (Get)
-def get_match_history_url(region, match_id, player_id=None):
+def get_match_history_url(region, platform, match_id, player_id=None):
     if region == 'kr':
         url = 'https://matchhistory.leagueoflegends.co.kr/ko/#match-details/KR/{}'.format(match_id)
     else:
         url = 'https://matchhistory.{}.leagueoflegends.com/en/#match-details/{}/{}'\
-            .format(region_match_history_string_map[region], region.upper(), match_id)
+            .format(region_match_history_string_map[region], platform, match_id)
     if player_id is not None:
         url += '/{}'.format(player_id)
     url += '?tab=overview'

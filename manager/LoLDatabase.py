@@ -117,7 +117,7 @@ def select_item_inverted(item_name):
     return results
 
 
-def select_queue(queue_id, num_of_players=False, has_lanes=False, has_score=False, has_towers=False,
+def select_queue(queue_id, all=False, num_of_players=False, has_lanes=False, has_score=False, has_towers=False,
                  has_dragons=False, has_barons=False, has_heralds=False, has_vilemaws=False, has_monsters=False,
                  has_vision=False):
     if queue_id is None:
@@ -141,25 +141,25 @@ def select_queue(queue_id, num_of_players=False, has_lanes=False, has_score=Fals
         'mode': cached[1],
         'extra': cached[2]
     }
-    if num_of_players:
+    if all or num_of_players:
         result['numOfPlayers'] = cached[3]
-    if has_lanes:
+    if all or has_lanes:
         result['hasLanes'] = cached[4]
-    if has_score:
+    if all or has_score:
         result['hasScore'] = cached[5]
-    if has_towers:
+    if all or has_towers:
         result['hasTowers'] = cached[6]
-    if has_dragons:
+    if all or has_dragons:
         result['hasDragons'] = cached[7]
-    if has_barons:
+    if all or has_barons:
         result['hasBarons'] = cached[8]
-    if has_heralds:
+    if all or has_heralds:
         result['hasHeralds'] = cached[9]
-    if has_vilemaws:
+    if all or has_vilemaws:
         result['hasVilemaws'] = cached[10]
-    if has_monsters:
+    if all or has_monsters:
         result['hasMonsters'] = cached[11]
-    if has_vision:
+    if all or has_vision:
         result['hasVision'] = cached[12]
     return result
 

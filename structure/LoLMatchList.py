@@ -1,73 +1,51 @@
-# region Imports
-from value import LeagueValues as Lv, GeneralValues as Gv
-# endregion
+from value import GeneralValues as Gv, LeagueValues as Lv
 
 
-class LoLMatch:
-    def __init__(self, region, match_id, champion_pair,
-                 queue_pair, season_pair,
-                 role_id, lane_id, duration, kda_triple, cs, cc,
-                 vision, is_win, is_lanes=True):
+class LoLMatchList:
+    def __init__(self, region, name, url, matches):
         self.region = region
+        self.name = name
+        self.url = url
+        self.matches = matches
+
+    def embed(self, ctx, amount):
+        embed = Gv.create_embed(Lv.default_embed_color,
+                                '{} most recent games for __**{}**__ in __**{}**__.'
+                                .format(amount, self.name, self.region),
+                                ctx.message.author)
+        # Set Author
+        embed.set_author(name='OP.GG: {}'.format(self.name), url=self.url,
+                         icon_url=Lv.op_gg_icon_url)
+        # Matches
+        amount = min(amount, len(self.matches) - 1)
+        for i, m in enumerate(self.matches[:amount]):
+            result = 'VICTORY' if m.is_win else 'DEFEAT'
+            mins, secs = Gv.get_minutes_seconds(m.duration)
+            lane = ' {} {}'.format(m.lane, m.role) if m.has_lanes else ''
+            embed.add_field(name='{}. __{}:__'.format(i + 1, m.match_id),
+                            value='**{}**\n\t{}\n\t{}\n\t**Duration:** {:02d}:{:02d}\n\t**Champion:** {}{}\n'
+                                  '\t**KDA:** {} / {} / {}\n\t**CS:** {} **CC:** {} **Vision:** {}'
+                            .format(result, m.season, m.queue, mins, secs, m.champion, lane, m.kills, m.deaths,
+                                    m.assists, m.cs, m.cc, m.vision),
+                            inline=False)
+        return embed
+
+
+class LoLMatchListMatchPackage:
+    def __init__(self, match_id, season, queue, role, lane, duration, champion, kills, deaths, assists, cs,
+                 cc, vision, is_win, has_lanes=True):
         self.match_id = match_id
-        self.champion_pair = champion_pair
-        self.queue_pair = queue_pair
-        self.season_pair = season_pair
-        self.role_id = role_id
-        self.lane_id = lane_id
+        self.season = season
+        self.queue = queue
+        self.role = role
+        self.lane = lane
         self.duration = duration
-        self.kda_triple = kda_triple
+        self.champion = champion
+        self.kills = kills
+        self.deaths = deaths
+        self.assists = assists
         self.cs = cs
         self.cc = cc
         self.vision = vision
         self.is_win = is_win
-        self.is_lanes = is_lanes
-
-    def to_str(self, depth=0):
-        tabs = '\t' * depth
-        string = '{}{}\n'.format(tabs, 'VICTORY' if self.is_win else 'DEFEAT')
-        string += '{}Match ID: {}\n'.format(tabs, self.match_id)
-        string += '{}{}\n'.format(tabs, self.season_pair[1])
-        string += '{}{}\n'.format(tabs, self.queue_pair[1])
-        mins, secs = Gv.get_minutes_seconds(self.duration)
-        string += '{}Duration: {}:{:02d}\n'.format(tabs, int(mins), secs)
-        string += '{}Champion: {}\n'.format(tabs, self.champion_pair[1])
-        if self.is_lanes:
-            string += '{}Lane: {} {}\n'.format(tabs,
-                                               Lv.lanes_string_map[self.lane_id],
-                                               Lv.roles_string_map[self.role_id])
-        string += '{}KDA: {}/{}/{}\n'.format(tabs, self.kda_triple[0], self.kda_triple[1], self.kda_triple[2])
-        string += '{}CS: {}, CC: {}, Vision: {}\n'.format(tabs, self.cs, self.cc, self.vision)
-        return [string]
-
-
-class LoLMatchList:
-    def __init__(self, region, name, player_id, account_id, matches):
-        self.region = region
-        self.name = name
-        self.player_id = player_id
-        self.account_id = account_id
-        self.matches = matches
-
-    def to_str(self, amount, depth=0):
-        if amount < 0 or amount > len(self.matches):
-            return None
-        tabs = '\t' * depth
-        strings = []
-        string = '{}Name: {}\n'.format(tabs, self.name)
-        string += '{}Region: {}\n'.format(tabs, Lv.regions_string_map[self.region])
-        string += '{}Recent Matches:\n'.format(tabs)
-        strings.append(string)
-        string = ''
-
-        if amount >= len(self.matches):
-            amount = len(self.matches) - 1
-
-        for i, m in enumerate(self.matches[:amount]):
-            string += '{}\n'.format(m.to_str(depth + 1)[0])
-            if i % Lv.split_match_list >= Lv.split_match_list - 1:
-                strings.append(string)
-                string = ''
-            elif len(self.matches[:amount]) - i == 1:
-                strings.append(string)
-        return strings
+        self.has_lanes = has_lanes
