@@ -1,74 +1,84 @@
-# region Imports
-from value import LeagueValues as Lv
-# endregion
-
-
-class LoLMatchTimelineEvent:
-    def __init__(self, event_type, time_stamp, description, killer, victim, assists_list, team_id):
-        self.event_type = event_type
-        self.time_stamp = time_stamp
-        self.description = description
-        self.killer = killer
-        self.victim = victim
-        self.assists_list = assists_list
-        self.team_id = team_id
-
-    def to_str(self, depth=0):
-        tabs = '\t' * depth
-        team_string = '1' if self.team_id == 100 else '2'
-        mins, secs = Lv.get_mins_secs_from_time_stamp(self.time_stamp)
-        string = '{}@{}:{:02d}: Team {} '.format(tabs, mins, secs, team_string)
-        if self.event_type == 'CHAMPION_KILL':
-            string += 'has slain {}.\n'.format(self.victim)
-        elif self.event_type == 'BUILDING_KILL':
-            string += 'has destroyed {}.\n'.format(self.description)
-        else:
-            string += 'has slain {}.\n'.format(self.description)
-        string += '\t{}By {}\n'.format(tabs, self.killer)
-        if self.assists_list:
-            string += '\t{}Assisted By:\n'.format(tabs)
-        for a in self.assists_list:
-            string += '\t\t{}{}\n'.format(tabs, a)
-        return string
-
-
-class LoLMatchTimelineTeam:
-    def __init__(self, team_id, is_winner, player_pair_list):
-        self.team_id = team_id
-        self.is_winner = is_winner
-        self.player_pair_list = player_pair_list
+import math
+from value import GeneralValues as Gv, LeagueValues as Lv
 
 
 class LoLMatchTimeline:
-    def __init__(self, region, match_id, teams_list, events_list):
+    def __init__(self, region, match_id, season, queue, teams, events, official):
+        self.season = season
+        self.queue = queue
         self.region = region
         self.match_id = match_id
-        self.teams_list = teams_list
-        self.events_list = events_list
+        self.teams = teams
+        self.events = events
+        self.official = official
 
-    def to_str(self, depth=0):
-        tabs = '\t' * depth
-        strings = []
-        string = '{}Match ID: {}\n'.format(tabs, self.match_id)
-        string += '{}Region: {}\n'.format(tabs, Lv.regions_string_map[self.region])
+    def embed(self, ctx):
+        embeds = []
+        embed = Gv.create_embed(Lv.default_embed_color,
+                                'Timeline of Match __**{}**__ in __**{}**__.'.format(self.match_id, self.region),
+                                ctx.message.author)
+        embed.set_author(name='Match {}'.format(self.match_id), url=self.official)
+        embed.add_field(name='__Core:__',
+                        value='{}\n{}\n'.format(self.season, self.queue),
+                        inline=False)
+        # Team info: Set victories and map players to champions.
+        for t in self.teams:
+            result = '**VICTORY**' if t.did_win else '**DEFEAT**'
+            players = ''
+            for i, p in enumerate(t.players):
+                players += '{}. **{}:** {}\n'.format(i + 1, p[0], p[1])
+            embed.add_field(name='__TEAM {}:__'.format(t.team_id // 100),
+                            value='{}\n{}'.format(result, players),
+                            inline=True)
+        embeds.append(embed)
 
-        for t in self.teams_list:
-            string += '{}Team {}:\n'.format(tabs, t.team_id // 100)
-            if t.is_winner:
-                string += '\t{}VICTORY.\n'.format(tabs)
-            else:
-                string += '\t{}DEFEAT.\n'.format(tabs)
-            for i, p in enumerate(t.player_pair_list):
-                string += '\t{}{}. {}: {}\n'.format(tabs, i + 1, p[0], p[1])
-        strings.append(string)
-        string = ''
-        for i, e in enumerate(self.events_list):
-            string += '{}\n'.format(e.to_str(depth))
-            if i % Lv.split_match_timeline >= Lv.split_match_timeline - 1:
-                strings.append(string)
-                string = ''
-            elif len(self.events_list) - i == 1:
-                strings.append(string)
-        return strings
+        embed = Gv.create_embed(Lv.default_embed_color,
+                                'Events of Match __**{}**__ in __**{}**__ .'.format(self.match_id, self.region),
+                                ctx.message.author)
+        embed.set_author(name='{}'.format(self.match_id), url=self.official)
+        for i, e in enumerate(self.events):
+            embed.add_field(name='@{}'.format(e.time),
+                            value=self.__get_event_string(e),
+                            inline=False)
+            if i % Lv.match_timeline_split >= Lv.match_timeline_split - 1:
+                embeds.append(embed)
+                embed = Gv.create_embed(Lv.default_embed_color,
+                                        'Events of Match __**{}**__ in __**{}**__ .'.format(self.match_id, self.region),
+                                        ctx.message.author)
+                embed.set_author(name='{}'.format(self.match_id), url=self.official)
+            elif len(self.events) - i == 1:
+                embeds.append(embed)
+        return embeds
 
-        
+    def __get_event_string(self, event):
+        event_description = ''
+        if event.category == 'CHAMPION_KILL':
+            event_description += 'has slain'
+        elif event.category == 'CHAMPION_KILL':
+            event_description += 'has destroyed'
+        else:
+            event_description += 'has slain'
+        string = '**TEAM {}** {} **{}**.\n'.format(event.team_killer // 100, event_description, event.victim)
+        string += '\t**Killed By** {}\n'.format(event.killer)
+        if event.assists:
+            string += '\t**Assisted By:**'
+            for a in event.assists:
+                string += '  {}'.format(a)
+        return string
+
+
+class LoLMatchTimelineTeamPackage:
+    def __init__(self, team_id, did_win, players):
+        self.team_id = team_id
+        self.did_win = did_win
+        self.players = players
+
+
+class LoLMatchTimelineEventPackage:
+    def __init__(self, category, time, team_killer, killer, victim, assists):
+        self.category = category
+        self.time = time
+        self.team_killer = team_killer
+        self.killer = killer
+        self.victim = victim
+        self.assists = assists

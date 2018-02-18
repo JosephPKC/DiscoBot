@@ -87,9 +87,13 @@ class DiscoLoLCog:
             except requests.HTTPError as e:
                 self.__print_http_error(e)
                 await self.__display_http_error(e, item=name, location=region)
+                await self.__bot.say('Or')
                 return
             if mid is None:
                 await self.__bot.say('**{}** is too large of an index.')
+                return
+            if mid == -1:
+                await self.__bot.say('Not matches found for **{}** in **{}**.'.format(name, region))
                 return
 
         # Check Cache
@@ -147,13 +151,79 @@ class DiscoLoLCog:
                 matchlist = self.__get_detailed_match_list(region, player['accountId'])
             except requests.HTTPError as e:
                 self.__print_http_error(e)
-                await self.__display_http_error(e)
+                await self.__bot.say('Not recent matches found for **{}** in **{}**.'.format(name, region))
                 return
             # Create and Cache
             cached = Factory.create_match_list_recent(region, player, matchlist)
             Cache.add(str_key, cached, Cache.CacheType.STR)
 
         await self.__bot.say(content='{}'.format(ctx.message.author.mention), embed=cached.embed(ctx, amount))
+
+    @__group_lol.command(name='timeline', pass_context=True)
+    async def __cmd_timeline(self, ctx, *, cmd_input: str = None):
+        Gv.print_command(ctx.command, cmd_input)
+        # Parse into Inputs and Args
+        inputs = self.__parse_to_inputs_args(cmd_input)
+        if inputs is None or len(inputs[0]) < 1 or inputs[0][0] == '':
+            await self.__display_bad_input('timeline')
+            return
+        # Get inputs
+        if len(inputs[0]) == 1:
+            name = None
+            index = None
+            mid = inputs[0][0]
+        else:
+            name = inputs[0][0]
+            index = self.__get_match_index(inputs[0][1])
+            if index is None:
+                await self.__display_not_in_range(*Lv.match_index_range)
+                return
+            mid = None
+        args = inputs[1]
+        # Get arguments
+        _, region = self.__parse_arg(args, 'r', True)
+        region_temp = self.__get_region(region)
+        if region_temp is None:
+            await self.__display_not_found(region)
+            return
+        region = region_temp
+        # Get mid
+        if mid is None:
+            try:
+                mid = self.__get_match_id(region, name, index)
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                await self.__display_http_error(e, item=name, location=region)
+                return
+            if mid is None:
+                await self.__bot.say('**{}** is too large of an index.')
+                return
+            if mid == -1:
+                await self.__bot.say('Not matches found for **{}** in **{}**.'.format(name, region))
+                return
+        # Check Cache
+        str_key = (region, mid, Cache.StrKey.LoL.MATCH_TIMELINE)
+        cached = Cache.retrieve(str_key, Cache.CacheType.STR)
+        if cached is None:
+            # Find API
+            try:
+                timeline = self.__find_match_timeline(region, mid)
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                await self.__bot.say('No timeline found for match **{}**.'.format(mid))
+                return
+            try:
+                match = self.__find_match(region, mid)
+            except requests.HTTPError as e:
+                self.__print_http_error(e)
+                await self.__display_http_error(e)
+                return
+            # Create and Cache
+            cached = Factory.create_timeline(region, match, timeline)
+            Cache.add(str_key, cached, Cache.CacheType.STR)
+
+        for e in cached.embed(ctx):
+            await self.__bot.say(embed=e)
 
     @__group_lol.command(name='player', pass_context=True, aliases=['summoner', 'profile'])
     async def __cmd_player(self, ctx, *, cmd_input: str=None):
@@ -188,11 +258,15 @@ class DiscoLoLCog:
                 return
             try:
                 ranks = self.__find_ranks(region, player['id'])
-                matchlist = self.__get_detailed_match_list(region, player['accountId'], Lv.queues_standard_list)
                 masteries = self.__find_masteries(region, player['id'])
             except requests.HTTPError as e:
                 self.__print_http_error(e)
                 await self.__display_http_error(e)
+                return
+            try:
+                matchlist = self.__get_detailed_match_list(region, player['accountId'], Lv.queues_standard_list)
+            except requests.HTTPError:
+                await self.__bot.say('Not matches found for **{}** in **{}**.'.format(name, region))
                 return
             # Create and Cache
             cached = Factory.create_player(region, player, ranks, matchlist, masteries)
@@ -246,6 +320,13 @@ class DiscoLoLCog:
             func=lambda r, aid: self.__watcher.match.matchlist_by_account_recent(r, aid)
         )
 
+    def __find_match_timeline(self, region, match_id):
+        return self.__find_api(
+            params=[region, match_id],
+            key_type=Cache.ApiKey.LoL.MATCH_TIMELINE,
+            func=lambda r, mid: self.__watcher.match.timeline_by_match(r, mid)
+        )
+
     def __find_player(self, region, name):
         return self.__find_api(
             params=[region, name],
@@ -292,11 +373,17 @@ class DiscoLoLCog:
         except requests.HTTPError as e:
             raise e
         if index > 20:
-            matchlist = self.__find_match_list_full(region, player['accountId'])
-            if index > matchlist['endIndex']:
-                return None
+            try:
+                matchlist = self.__find_match_list_full(region, player['accountId'])
+                if index > matchlist['endIndex']:
+                    return None
+            except requests.HTTPError:
+                return -1
         else:
-            matchlist = self.__find_match_list_recent(region, player['accountId'])
+            try:
+                matchlist = self.__find_match_list_recent(region, player['accountId'])
+            except requests.HTTPError:
+                return -1
         match_id = matchlist['matches'][index - 1]['gameId']
         return match_id
 

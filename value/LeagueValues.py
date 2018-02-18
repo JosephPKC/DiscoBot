@@ -44,7 +44,7 @@ best_players_split = 20
 build_order_split = 20
 masteries_split = 20
 match_list_split = 20
-match_timeline_split = 20
+match_timeline_split = 50
 # Misc Values
 region_optional_suffix = '1'
 # endregion

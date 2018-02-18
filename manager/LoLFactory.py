@@ -1,5 +1,5 @@
 from manager import LoLDatabase as Database, LoLDataDragon as Datadragon
-from structure import LoLMatchDetailed, LoLMatchList, LoLPlayer
+from structure import LoLMatchDetailed, LoLMatchList, LoLMatchTimeline, LoLPlayer
 from value import GeneralValues as Gv, LeagueValues as Lv
 
 
@@ -66,6 +66,25 @@ def create_match_list_recent(region, player, matchlist):
         matches.append(__build_match_list_recent_match(player, m))
     return LoLMatchList.LoLMatchList(
         Lv.region_string_map[region], player['name'], url, matches
+    )
+
+
+def create_timeline(region, match, timeline):
+    season = Database.select_season(match['seasonId'])['name']
+    queue = __get_queue_string(Database.select_queue(match['queueId']))
+    teams = []
+    for i in [100, 200]:
+        teams.append(__build_match_timeline_team(match, timeline, i))
+    num_of_players = len(timeline['frames'][0]['participantFrames'])
+    events = []
+    for f in timeline['frames']:
+        for e in f['events']:
+            event = __build_match_timeline_event(e, teams, num_of_players)
+            if event is not None:
+                events.append(event)
+    url = Lv.get_match_history_url(region, match['platformId'], match['gameId'])
+    return LoLMatchTimeline.LoLMatchTimeline(
+        Lv.region_string_map[region], match['gameId'], season, queue, teams, events, url
     )
 
 
@@ -253,6 +272,95 @@ def __build_match_list_recent_match(player, match):
         match['gameDuration'], champion, stats['kills'], stats['deaths'], stats['assists'],
         stats['totalMinionsKilled'] + stats['neutralMinionsKilled'], stats['timeCCingOthers'], stats['visionScore'],
         stats['win'], queue_results['hasLanes']
+    )
+
+
+def __build_match_timeline_event(event, teams, num_of_players):
+    allowed = ['CHAMPION_KILL', 'BUILDING_KILL', 'ELITE_MONSTER_KILL']
+    if event['type'] not in allowed:
+        return None
+    if event['type'] == allowed[0]:
+        return __build_match_timeline_event_champion_kill(
+            event, teams, num_of_players
+        )
+    elif event['type'] == allowed[1]:
+        return __build_match_timeline_event_building_kill(
+            event, teams, num_of_players
+        )
+    else:
+        return __build_match_timeline_event_elite_monster_kill(
+            event, teams, num_of_players
+        )
+
+
+def __build_match_timeline_event_champion_kill(event, teams, num_of_players):
+    team = 200 if event['victimId'] <= num_of_players // 2 else 100
+    allies = teams[0] if team == 100 else teams[1]
+    enemies = teams[1] if team == 100 else teams[0]
+    if event['killerId'] > 0:
+        killer = allies.players[Lv.get_player_index_in_team(event['killerId'], num_of_players)][1]
+    else:
+        killer = 'Team {}'.format(int(team / 100))
+    victim = enemies.players[Lv.get_player_index_in_team(event['victimId'], num_of_players)][1]
+    assists = []
+    for a in event['assistingParticipantIds']:
+        assists.append(allies.players[Lv.get_player_index_in_team(a, num_of_players)][1])
+    mins, secs = Lv.get_mins_secs_from_time(event['timestamp'])
+    time = '{:02d}:{:02d}'.format(mins, secs)
+    return LoLMatchTimeline.LoLMatchTimelineEventPackage(
+        event['type'], time, team, killer, victim, assists
+    )
+
+
+def __build_match_timeline_event_building_kill(event, teams, num_of_players):
+    team = 200 if event['teamId'] == 100 else 100
+    allies = teams[0] if team == 100 else teams[1]
+    if event['killerId'] > 0:
+        killer = allies.players[Lv.get_player_index_in_team(event['killerId'], num_of_players)][1]
+    else:
+        killer = 'Team {}'.format(int(team / 100))
+    if event['buildingType'] == 'INHIBITOR_BUILDING':
+        victim = '{} {}'.format(Lv.event_string_map[event['laneType']], Lv.event_string_map[event['buildingType']])
+    elif event['towerType'] == 'NEXUS_TURRET':
+        victim = Lv.event_string_map[event['towerType']]
+    else:
+        victim = '{} {}'.format(Lv.event_string_map[event['laneType']], Lv.event_string_map[event['towerType']])
+    assists = []
+    for a in event['assistingParticipantIds']:
+        assists.append(allies.players[Lv.get_player_index_in_team(a, num_of_players)][1])
+    mins, secs = Lv.get_mins_secs_from_time(event['timestamp'])
+    time = '{:02d}:{:02d}'.format(mins, secs)
+    return LoLMatchTimeline.LoLMatchTimelineEventPackage(
+        event['type'], time, team, killer, victim, assists
+    )
+
+
+def __build_match_timeline_event_elite_monster_kill(event, teams, num_of_players):
+    team = 100 if event['killerId'] <= num_of_players // 2 else 200
+    allies = teams[0] if team == 100 else teams[1]
+    if event['killerId'] > 0:
+        killer = allies.players[Lv.get_player_index_in_team(event['killerId'], num_of_players)][1]
+    else:
+        killer = 'Team {}'.format(int(team / 100))
+    if event['monsterType'] == 'DRAGON':
+        victim = Lv.event_string_map[event['monsterSubType']]
+    else:
+        victim = Lv.event_string_map[event['monsterType']]
+    mins, secs = Lv.get_mins_secs_from_time(event['timestamp'])
+    time = '{:02d}:{:02d}'.format(mins, secs)
+    return LoLMatchTimeline.LoLMatchTimelineEventPackage(
+        event['type'], time, team, killer, victim, []
+    )
+
+def __build_match_timeline_team(match, timeline, index):
+    start = 0 if index == 100 else len(match['participantIdentities']) // 2
+    end = start + len(match['participantIdentities']) // 2
+    players = []
+    for p in match['participantIdentities'][start:end]:
+        players.append([p['player']['summonerName'],
+                       Database.select_champion(match['participants'][p['participantId'] - 1]['championId'])['name']])
+    return LoLMatchTimeline.LoLMatchTimelineTeamPackage(
+        index, match['teams'][index // 100 - 1]['win'] == 'Win', players
     )
 
 
