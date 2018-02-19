@@ -1,51 +1,59 @@
-# region Imports
-import math
-
 from value import LeagueValues as Lv, GeneralValues as Gv
-# endregion
-
-
-class LoLBuildOrderEvent:
-    def __init__(self, event_type, time_stamp, item):
-        self.event_type = event_type
-        self.time_stamp = time_stamp
-        self.item = item
-
-    def to_str(self, depth=0):
-        tabs = '\t' * depth
-        mins, secs = Lv.get_mins_secs_from_time_stamp(self.time_stamp)
-        string = '{}@{}:{:02d}: '.format(tabs, mins, secs)
-        if self.event_type == 'ITEM_PURCHASED':
-            string += 'Purchased/Got: {}\n'.format(self.item)
-        else:
-            string += 'Sold/Used/Removed: {}\n'.format(self.item)
-        return string
 
 
 class LoLBuildOrder:
-    def __init__(self, region, name, player_id, match_id, champion, events):
+    def __init__(self, region, name, match_id, champion, events, url):
+        self.url = url
         self.region = region
         self.name = name
-        self.player_id = player_id
         self.match_id = match_id
         self.champion = champion
         self.events = events
 
-    def to_str(self, depth=0):
-        tabs = '\t' * depth
-        strings = []
-        string = '{}Match ID: {}\n'.format(tabs, self.match_id)
-        string += '{}Name: {}\n'.format(tabs, self.name)
-        string += '{}Region: {}\n'.format(tabs, Lv.regions_string_map[self.region])
-        string += '{}Champion: {}\n'.format(tabs, self.champion)
-        strings.append(string)
-        string = ''
-
+    def embed(self, ctx):
+        embeds = []
+        # Overview and Brief
+        embed = Gv.create_embed(Lv.default_embed_color,
+                                'Overview of items built in Match __**{}**__ in __**{}**__.\n'
+                                '__**{}**__ played __**{}**__.'
+                                .format(self.match_id, self.region, self.name, self.champion),
+                                ctx.message.author)
+        embed.set_author(name='{} in Match {}'.format(self.name, self.match_id), url=self.url)
+        embeds.append(embed)
+        # For each set of 50 events
+        embed = Gv.create_embed(Lv.default_embed_color,
+                                'Overview of items built in Match __**{}**__ in __**{}**__.\n'
+                                '__**{}**__ played __**{}**__.'
+                                .format(self.match_id, self.region, self.name, self.champion),
+                                ctx.message.author)
         for i, e in enumerate(self.events):
-            string += '{}\n'.format(e.to_str(depth))
-            if i % Lv.split_build_order >= Lv.split_build_order - 1:
-                strings.append(string)
-                string = ''
+            embed.add_field(name='@{}'.format(e.time),
+                            value=self.__get_event_string(e),
+                            inline=False)
+            if i % Lv.match_timeline_split >= Lv.match_timeline_split - 1:
+                embeds.append(embed)
+                embed = Gv.create_embed(Lv.default_embed_color,
+                                        'Overview of items built in Match __**{}**__ in __**{}**__.\n'
+                                        '__**{}**__ played __**{}**__.'
+                                        .format(self.match_id, self.region, self.name, self.champion),
+                                        ctx.message.author)
+                embed.set_author(name='{}'.format(self.match_id), url=self.url)
             elif len(self.events) - i == 1:
-                strings.append(string)
-        return strings
+                embeds.append(embed)
+        return embeds
+
+    @staticmethod
+    def __get_event_string(event):
+        string = ''
+        if event.category == 'ITEM_PURCHASED':
+            string += '**Purchased/Got:** {}\n'.format(event.item)
+        else:
+            string += '**Sold/Used/Removed:** {}\n'.format(event.item)
+        return string
+
+
+class LoLBuildOrderEventPackage:
+    def __init__(self, category, time, item):
+        self.category = category
+        self.time = time
+        self.item = item

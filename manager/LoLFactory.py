@@ -191,11 +191,11 @@ def __build_match_player(region, match, index):
 
     return LoLMatchDetailed.LoLMatchDetailedPlayerPackage(
         identity['summonerName'], champion, Lv.lane_string_map[timeline['lane']],
-        Lv.role_string_map[timeline['role']], player['highestAchievedSeasonTier'], [spell1, spell2], items,
-        stats['kills'], stats['deaths'], stats['assists'], stats['largestKillingSpree'], stats['largestMultiKill'],
-        stats['killingSprees'], stats['doubleKills'], stats['tripleKills'], stats['quadraKills'],
-        stats['pentaKills'], stats['unrealKills'], damage_dealt, stats['largestCriticalStrike'], damage_to_champs,
-        stats['totalHeal'], stats['damageSelfMitigated'], stats['damageDealtToObjectives'],
+        Lv.role_string_map[timeline['role']], __get_key_values(player, 'highestAchievedSeasonTier'), [spell1, spell2],
+        items, stats['kills'], stats['deaths'], stats['assists'], stats['largestKillingSpree'],
+        stats['largestMultiKill'], stats['killingSprees'], stats['doubleKills'], stats['tripleKills'],
+        stats['quadraKills'], stats['pentaKills'], stats['unrealKills'], damage_dealt, stats['largestCriticalStrike'],
+        damage_to_champs, stats['totalHeal'], stats['damageSelfMitigated'], stats['damageDealtToObjectives'],
         stats['damageDealtToTurrets'], stats['visionScore'], stats['timeCCingOthers'], damage_taken,
         stats['goldEarned'], stats['goldSpent'], stats['turretKills'], stats['inhibitorKills'],
         stats['totalMinionsKilled'], stats['neutralMinionsKilled'], __get_key_values(stats, 'visionWardsBoughtInGame'),
@@ -351,6 +351,7 @@ def __build_match_timeline_event_elite_monster_kill(event, teams, num_of_players
     return LoLMatchTimeline.LoLMatchTimelineEventPackage(
         event['type'], time, team, killer, victim, []
     )
+
 
 def __build_match_timeline_team(match, timeline, index):
     start = 0 if index == 100 else len(match['participantIdentities']) // 2

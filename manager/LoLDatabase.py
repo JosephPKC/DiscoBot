@@ -12,6 +12,19 @@ def __print_nothing_found(query):
     print('NOTHING: {}'.format(query))
 
 
+def __select(query):
+    cur = __conn.cursor()
+    cached = Cache.retrieve(query, Cache.CacheType.DB)
+    if cached is None:
+        cur.execute(query)
+        cached = cur.fetchone()
+        if cached is None:
+            __print_nothing_found(query)
+            return None
+        Cache.add(query, cached, Cache.CacheType.DB)
+    return cached
+
+
 def end():
     if __conn:
         __conn.close()
@@ -30,18 +43,8 @@ def init():
 def select_champion(champion_id, json_name=False):
     if champion_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name, JsonName FROM Champions WHERE Id = {};'.format(str(champion_id))
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0]
     }
@@ -53,20 +56,10 @@ def select_champion(champion_id, json_name=False):
 def select_champion_inverted(champion_name):
     if champion_name is None:
         return None
-    cur = __conn.cursor()
     clean_name = champion_name.lower().replace(' ', '').replace('\'', '')
     query = 'SELECT Id FROM Champions WHERE replace(replace(lower(Name), \' \', \'\'), \'\'\'\', \'\') = \'{}\';'\
         .format(clean_name)
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'id': cached[0]
     }
@@ -76,18 +69,8 @@ def select_champion_inverted(champion_name):
 def select_item(item_id):
     if item_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name FROM Items WHERE Id = {};'.format(str(item_id))
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0]
     }
@@ -97,20 +80,10 @@ def select_item(item_id):
 def select_item_inverted(item_name):
     if item_name is None:
         return None
-    cur = __conn.cursor()
     clean_name = item_name.lower().replace(' ', '').replace('\'', '')
     query = 'SELECT Id FROM Items WHERE replace(replace(lower(Name), \' \', \'\'), \'\'\'\', \'\') = \'{}\';'\
         .format(clean_name)
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'id': cached[0]
     }
@@ -122,20 +95,10 @@ def select_queue(queue_id, all=False, num_of_players=False, has_lanes=False, has
                  has_vision=False):
     if queue_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Map, Mode, Extra, NumOfPlayers, HasLanes, HasScore, HasTowers, HasDragons, HasBarons, ' \
             'HasHeralds, HasVileMaws, HasMonsters, HasVision FROM QueueDescriptions WHERE Id = {};'\
         .format(str(queue_id))
-    
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     result = {
         'map': cached[0],
         'mode': cached[1],
@@ -167,19 +130,9 @@ def select_queue(queue_id, all=False, num_of_players=False, has_lanes=False, has
 def select_rune(rune_id, has_vars=False):
     if rune_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name, Var1, Var2, Var3, HasTimeVar, HasPercentVar, HasSecVar, HasPerfectVar ' \
             'FROM Runes WHERE Id = {};'.format(str(rune_id))
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0],
     }
@@ -195,18 +148,8 @@ def select_rune(rune_id, has_vars=False):
 def select_rune_style(rune_style_id):
     if rune_style_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name FROM RuneTrees WHERE Id = {};'.format(str(rune_style_id))
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0]
     }
@@ -216,18 +159,8 @@ def select_rune_style(rune_style_id):
 def select_season(season_id):
     if season_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name FROM Seasons WHERE Id = {};'.format(str(season_id))
-    
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0]
     }
@@ -237,18 +170,8 @@ def select_season(season_id):
 def select_summoner_spell(summoner_spell_id):
     if summoner_spell_id is None:
         return None
-    cur = __conn.cursor()
     query = 'SELECT Name FROM SummonerSpells WHERE Id = {};'.format(str(summoner_spell_id))
-
-    cached = Cache.retrieve(query, Cache.CacheType.DB)
-    if cached is None:
-        cur.execute(query)
-        cached = cur.fetchone()
-        if cached is None:
-            __print_nothing_found(query)
-            return None
-        Cache.add(query, cached, Cache.CacheType.DB)
-
+    cached = __select(query)
     results = {
         'name': cached[0]
     }

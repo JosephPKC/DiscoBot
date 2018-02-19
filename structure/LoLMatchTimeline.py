@@ -1,23 +1,22 @@
-import math
 from value import GeneralValues as Gv, LeagueValues as Lv
 
 
 class LoLMatchTimeline:
-    def __init__(self, region, match_id, season, queue, teams, events, official):
+    def __init__(self, region, match_id, season, queue, teams, events, url):
         self.season = season
         self.queue = queue
         self.region = region
         self.match_id = match_id
         self.teams = teams
         self.events = events
-        self.official = official
+        self.url = url
 
     def embed(self, ctx):
         embeds = []
         embed = Gv.create_embed(Lv.default_embed_color,
                                 'Timeline of Match __**{}**__ in __**{}**__.'.format(self.match_id, self.region),
                                 ctx.message.author)
-        embed.set_author(name='Match {}'.format(self.match_id), url=self.official)
+        embed.set_author(name='Match {}'.format(self.match_id), url=self.url)
         embed.add_field(name='__Core:__',
                         value='{}\n{}\n'.format(self.season, self.queue),
                         inline=False)
@@ -35,7 +34,7 @@ class LoLMatchTimeline:
         embed = Gv.create_embed(Lv.default_embed_color,
                                 'Events of Match __**{}**__ in __**{}**__ .'.format(self.match_id, self.region),
                                 ctx.message.author)
-        embed.set_author(name='{}'.format(self.match_id), url=self.official)
+        embed.set_author(name='{}'.format(self.match_id), url=self.url)
         for i, e in enumerate(self.events):
             embed.add_field(name='@{}'.format(e.time),
                             value=self.__get_event_string(e),
@@ -45,12 +44,13 @@ class LoLMatchTimeline:
                 embed = Gv.create_embed(Lv.default_embed_color,
                                         'Events of Match __**{}**__ in __**{}**__ .'.format(self.match_id, self.region),
                                         ctx.message.author)
-                embed.set_author(name='{}'.format(self.match_id), url=self.official)
+                embed.set_author(name='{}'.format(self.match_id), url=self.url)
             elif len(self.events) - i == 1:
                 embeds.append(embed)
         return embeds
 
-    def __get_event_string(self, event):
+    @staticmethod
+    def __get_event_string(event):
         event_description = ''
         if event.category == 'CHAMPION_KILL':
             event_description += 'has slain'

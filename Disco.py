@@ -8,7 +8,7 @@ except ImportError:
     print('pip install discord.py[voice].')
     sys.exit(2)
 from cog import DiscoLoLCog
-from manager import LoLDatabase, LoLDataDragon, EmojiRepository
+from manager import LoLDatabase, LoLDataDragon
 from value import GeneralValues as Gv
 
 # Get keys from file
