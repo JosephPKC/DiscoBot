@@ -97,4 +97,5 @@ ENV/
 *.json
 *.png
 *.bat
+data/lolstaticdata.db/
 config.txt
