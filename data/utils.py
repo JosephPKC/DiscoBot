@@ -36,9 +36,10 @@ def print_command(command: str, inputs: list=None, args: str=None) -> None:
     string = 'Invoked: {}.\n'.format(command)
     if inputs:
         for i in inputs:
-            string += 'Inputs: {} '.format(i)
+            inp = i if i is not None else 'None'
+            string += f'Inputs: {inp} '
         string += '.\n'
     if args:
-        string += 'Args: {}.\n'.format(args)
+        string += f'Args: {args}.\n'
     print(string)
 # endregion
