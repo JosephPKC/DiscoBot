@@ -17,6 +17,9 @@ from data import utils
 
 
 class Error(Enum):
+    """
+    Enumeration to hold different types of errors.
+    """
     REGION_NOT_FOUND = 0
     PLAYER_NOT_FOUND = 1
     MATCHES_NOT_FOUND = 2
@@ -27,6 +30,9 @@ class Error(Enum):
 
 
 class QueueInfo:
+    """
+    A structure to hold information on a Queue.
+    """
     def __init__(self, has_lanes: bool=True, has_score: bool=True, has_vision: bool=True, has_monsters: bool=True,
                  has_towers: bool=True, has_heralds: bool=True, has_dragons: bool=True, has_barons: bool=True,
                  has_vilemaws: bool=True):
@@ -42,6 +48,9 @@ class QueueInfo:
 
 
 class Constant:
+    """
+    Group of Constants. This includes any lists or dictionaries that contain information.
+    """
     DEFAULT_MATCHES = 20
     DEFAULT_REGION = 'NA'
     EMBED_COLOR = 0x18719
@@ -110,6 +119,9 @@ class Constant:
 
 
 class Converter:
+    """
+    Group of Converters, which are mappings from one type to another (usually a string).
+    """
     FROM_LANE_TO_STRING = {
         data.Lane.bot_lane: 'Bottom',
         data.Lane.jungle: 'Jungle',
@@ -201,6 +213,10 @@ class LoL(object):
     # region COMMANDS
     @commands.group()
     async def lol(self, ctx: commands.Context) -> None:
+        """ A command group that houses all commands found here.
+        :param ctx: Context of the message.
+        :return: None.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.send('Invalid Command: {}. <:dab:390040479951093771>'.format(ctx.subcommand_passed))
 
@@ -209,6 +225,41 @@ class LoL(object):
         utils.print_command(ctx.command)
         msg = await ctx.send(content=ctx.author.mention, embed=self.help)
         await self.react_to(msg, ['hellyeah', 'dorawinifred', 'cutegroot', 'dab'])
+
+    @lol.command(name='buildorder', aliases=['events', 'history'])
+    async def build_order(self, ctx: commands.Context, name: str, index: int, *, args: str = None) \
+            -> None:
+        utils.print_command(ctx.command, [name, index], args)
+        # Validate Inputs, Parse and Extract Args.
+        args = self.parse_args(args)
+        # Get region
+        _, region = self.parse_single_arg(args, 'r', True)
+        region_temp = self.get_region(region)
+        if region_temp is None:
+            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
+        region = region_temp
+        # Retrieve Data
+        # Get Summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
+        try:
+            match = cassiopeia.get_match(id=index, region=region.upper())
+        except datapipelines.NotFoundError:
+            match = None
+            raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
+        if match is None:
+            # Summoner Name and Match Index given
+            # Get Matches
+            try:
+                matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
+            except datapipelines.NotFoundError:
+                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
+            # Get Match
+            match = matches[summoner.name]
+        # Create and Display Embed
+        await self.display_embed(ctx, ctx.author.mention, self.create_build_order(ctx, match, summoner))
 
     @lol.command()
     async def match(self, ctx: commands.Context, identifier: str, index: int=None, *, args: str=None)\
@@ -387,6 +438,55 @@ class LoL(object):
     @staticmethod
     def create_help() -> discord.Embed:
         return discord.Embed(title='Helps')
+
+    def create_build_order(self, ctx: commands.Context, match: cassiopeia.Match, summoner: cassiopeia.Summoner)\
+            -> List[discord.Embed]:
+        embeds = []
+        embed = utils.create_embed_template(
+            description=f'Build Order for __**{Summoner.name}**__ '
+                        f'in Match __**{match.id}**__ in __**{match.region.value}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {summoner.name}, {match.id}',
+            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+        )
+        participants = match.blue_team.participants + match.red_team.participants
+        pid = None
+        for p in participants:
+            if p.summoner.name == summoner.name:
+                pid = p.id
+                break
+        events = []
+        for f in match.timeline.frames:
+            for e in f.events:
+                if e.type in ['ITEM_PURCHASED', 'ITEM_SOLD', 'ITEM_DESTROYED', 'ITEM_UNDO']:
+                    events.append(e)
+        for i, e in enumerate(events):
+            string = ''
+            if pid == e.participantId:
+                item = cassiopeia.get_items('NA')[e.item_id].name
+                if e.type == 'ITEM_PURCHASED':
+                    string = f'Bought {item}.'
+                elif e.type == 'ITEM_SOLD':
+                    string = f'Sold {item}.'
+                elif e.type == 'ITEM_DESTROYED':
+                    string = f'Used {item}.'
+                else:
+                    string = f'Undid {item}.'
+            if string != '':
+                timestamp = self.get_time_stamp(e.timestamp)
+                timestamp = f'{timestamp[0]}:{timestamp[1]:02d}'
+                embed.add_field(name=f'@**{timestamp}:**\n', value=string, inline=False)
+            if i % Constant.SPLIT_FOR_TIMELINE >= Constant.SPLIT_FOR_TIMELINE - 1:
+                embeds.append(embed)
+                embed = utils.create_embed_template(
+                    description=f'Build Order for __**{Summoner.name}**__ '
+                                f'in Match __**{match.id}**__ in __**{match.region.value}**__.',
+                    color=Constant.EMBED_COLOR, requester=ctx.author,
+                    author=f'Match History: {summoner.name}, {match.id}',
+                    author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+                )
+            if len(events) - i == 1:
+                embeds.append(embed)
+        return embeds
 
     def create_match(self, ctx: commands.Context, match: cassiopeia.Match, use_bare: bool=False)\
         -> List[discord.Embed]:
