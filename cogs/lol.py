@@ -115,7 +115,8 @@ class Constant:
     REGIONS_LIST = [
         'BR', 'EUNE', 'EUW', 'JP', 'KR', 'LAN', 'LAS', 'NA', 'OCE', 'TR', 'RU', 'PBE'
     ]
-    SPLIT_FOR_TIMELINE = 40
+    SPLIT_FOR_BUILD_ORDER = 100
+    SPLIT_FOR_TIMELINE = 30
 
 
 class Converter:
@@ -226,7 +227,7 @@ class LoL(object):
         msg = await ctx.send(content=ctx.author.mention, embed=self.help)
         await self.react_to(msg, ['hellyeah', 'dorawinifred', 'cutegroot', 'dab'])
 
-    @lol.command(name='buildorder', aliases=['events', 'history'])
+    @lol.command(name='buildorder', aliases=['items'])
     async def build_order(self, ctx: commands.Context, name: str, index: int, *, args: str = None) \
             -> None:
         utils.print_command(ctx.command, [name, index], args)
@@ -244,12 +245,7 @@ class LoL(object):
             summoner = cassiopeia.get_summoner(name=name, region=region.upper())
         except datapipelines.NotFoundError:
             raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
-        try:
-            match = cassiopeia.get_match(id=index, region=region.upper())
-        except datapipelines.NotFoundError:
-            match = None
-            raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
-        if match is None:
+        if index < 1000:
             # Summoner Name and Match Index given
             # Get Matches
             try:
@@ -258,6 +254,11 @@ class LoL(object):
                 raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
             # Get Match
             match = matches[summoner.name]
+        else:
+            try:
+                match = cassiopeia.get_match(id=index, region=region.upper())
+            except datapipelines.NotFoundError:
+                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
         # Create and Display Embed
         await self.display_embed(ctx, ctx.author.mention, self.create_build_order(ctx, match, summoner))
 
@@ -442,40 +443,43 @@ class LoL(object):
     def create_build_order(self, ctx: commands.Context, match: cassiopeia.Match, summoner: cassiopeia.Summoner)\
             -> List[discord.Embed]:
         embeds = []
-        embed = utils.create_embed_template(
-            description=f'Build Order for __**{Summoner.name}**__ '
-                        f'in Match __**{match.id}**__ in __**{match.region.value}**__.',
-            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {summoner.name}, {match.id}',
-            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
-        )
         participants = match.blue_team.participants + match.red_team.participants
         pid = None
+        cid = None
         for p in participants:
             if p.summoner.name == summoner.name:
                 pid = p.id
+                cid = p.champion.key
                 break
+        champion = cassiopeia.get_champion(cid, 'NA').name
+        embed = utils.create_embed_template(
+            description=f'Build Order for __**{summoner.name}**__ '
+                        f'in Match __**{match.id}**__ in __**{match.region.value}**__.\n'
+                        f'Played __**{champion}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {summoner.name}, {match.id}',
+            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+        )
         events = []
         for f in match.timeline.frames:
             for e in f.events:
-                if e.type in ['ITEM_PURCHASED', 'ITEM_SOLD', 'ITEM_DESTROYED', 'ITEM_UNDO']:
+                if e.type in ['ITEM_PURCHASED', 'ITEM_SOLD', 'ITEM_UNDO'] and pid == e.participant_id:
                     events.append(e)
         for i, e in enumerate(events):
             string = ''
-            if pid == e.participantId:
+            if e.type == 'ITEM_PURCHASED':
                 item = cassiopeia.get_items('NA')[e.item_id].name
-                if e.type == 'ITEM_PURCHASED':
-                    string = f'Bought {item}.'
-                elif e.type == 'ITEM_SOLD':
-                    string = f'Sold {item}.'
-                elif e.type == 'ITEM_DESTROYED':
-                    string = f'Used {item}.'
-                else:
-                    string = f'Undid {item}.'
+                string += f'Bought **{item}**.'
+            elif e.type == 'ITEM_SOLD':
+                item = cassiopeia.get_items('NA')[e.item_id].name
+                string += f'Sold **{item}**.'
+            else:
+                item = cassiopeia.get_items('NA')[e.before_id].name
+                string += f'Undid **{item}**.'
             if string != '':
                 timestamp = self.get_time_stamp(e.timestamp)
                 timestamp = f'{timestamp[0]}:{timestamp[1]:02d}'
                 embed.add_field(name=f'@**{timestamp}:**\n', value=string, inline=False)
-            if i % Constant.SPLIT_FOR_TIMELINE >= Constant.SPLIT_FOR_TIMELINE - 1:
+            if i % Constant.SPLIT_FOR_BUILD_ORDER >= Constant.SPLIT_FOR_BUILD_ORDER - 1:
                 embeds.append(embed)
                 embed = utils.create_embed_template(
                     description=f'Build Order for __**{Summoner.name}**__ '

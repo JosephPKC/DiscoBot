@@ -65,7 +65,7 @@ bot = commands.Bot(command_prefix=prefix)
 @bot.event
 async def on_ready():
     print('Ready to Shurima.')
-    await bot.change_presence(game=discord.Game(name='Ascension'))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name='Ascension'))
 
 cogs = [
     lol.LoL(bot, prefix, arg_prefix, val_prefix)
