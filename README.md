@@ -10,6 +10,7 @@ python disco.py
 
 You'll need cassiopeia, cassioepia-championgg, cassiopeia-diskstore, and discord.py rewrite.
 
+``` python
 pip install cassiopeia
 
 pip install cassiopeia-championgg
@@ -17,7 +18,7 @@ pip install cassiopeia-championgg
 pip install cassiopeia-diskstore
 
 pip install git+git://github.com/Rapptz/discord.py@rewrite[voice]
-
+```
 
 # Commands
 
