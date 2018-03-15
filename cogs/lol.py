@@ -27,6 +27,7 @@ class Error(Enum):
     RANKS_NOT_FOUND = 4
     INVALID_AMOUNT = 5
     MATCH_NOT_FOUND = 6
+    NOT_IN_GAME = 7
 
 
 class QueueInfo:
@@ -213,7 +214,8 @@ class LoL(object):
 
     # region COMMANDS
     @commands.group()
-    async def lol(self, ctx: commands.Context) -> None:
+    async def lol(self, ctx: commands.Context) \
+            -> None:
         """ A command group that houses all commands found here.
         :param ctx: Context of the message.
         :return: None.
@@ -222,7 +224,8 @@ class LoL(object):
             await ctx.send('Invalid Command: {}. <:dab:390040479951093771>'.format(ctx.subcommand_passed))
 
     @lol.command(name='help', aliases=['?', 'commands'])
-    async def _help(self, ctx: commands.Context) -> None:
+    async def _help(self, ctx: commands.Context) \
+            -> None:
         utils.print_command(ctx.command)
         msg = await ctx.send(content=ctx.author.mention, embed=self.help)
         await self.react_to(msg, ['hellyeah', 'dorawinifred', 'cutegroot', 'dab'])
@@ -309,7 +312,8 @@ class LoL(object):
         await self.display_embed(ctx, ctx.author.mention, self.create_match(ctx, match, use_bare))
 
     @lol.command(aliases=['matchlist', 'recent'])
-    async def matches(self, ctx: commands.Context, name: str, *, args: str=None) -> None:
+    async def matches(self, ctx: commands.Context, name: str, *, args: str=None) \
+            -> None:
         utils.print_command(ctx.command, [name], args)
         # Validate Inputs, Parse and Extract Args.
         args = self.parse_args(args)
@@ -339,7 +343,8 @@ class LoL(object):
         await self.display_embed(ctx, ctx.author.mention, self.create_matches(ctx, summoner, matches))
 
     @lol.command(aliases=['summoner', 'profile'])
-    async def player(self, ctx: commands.Context, name: str, *, args: str=None) -> None:
+    async def player(self, ctx: commands.Context, name: str, *, args: str=None) \
+            -> None:
         utils.print_command(ctx.command, [name], args)
         # Validate Inputs, Parse and Extract Args.
         args = self.parse_args(args)
@@ -373,6 +378,32 @@ class LoL(object):
         # Create and Display Embed
         await self.display_embed(ctx, ctx.author.mention,
                                  self.create_player(ctx, summoner, matches, masteries, leagues))
+
+    @lol.command(aliases=['live'])
+    async def spectate(self, ctx: commands.Context, name: str, *, args: str=None) \
+            -> None:
+        utils.print_command(ctx.command, [name], args)
+        # Validate Inputs, Parse and Extract Args.
+        args = self.parse_args(args)
+        # Get region
+        _, region = self.parse_single_arg(args, 'r', True)
+        region_temp = self.get_region(region)
+        if region_temp is None:
+            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
+        region = region_temp
+        # Retrieve Data
+        # Get Summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
+        # Get Live Match
+        try:
+            match = cassiopeia.get_current_match(summoner=summoner, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NOT_IN_GAME, name, region))
+        # Create and Display Embed
+        await self.display_embed(ctx, ctx.author.mention, self.create_spectate(ctx, match, name))
 
     @lol.command(aliases=['events', 'history'])
     async def timeline(self, ctx: commands.Context, identifier: str, index: int = None, *, args: str = None) \
@@ -422,7 +453,8 @@ class LoL(object):
 
     # region ERROR
     @staticmethod
-    async def on_command_error(ctx: commands.Context, error: commands.CommandError) -> None:
+    async def on_command_error(ctx: commands.Context, error: commands.CommandError) \
+            -> None:
         if isinstance(error, commands.MissingRequiredArgument):
             splits = re.split(' ', error.__str__())
             string = f'**{splits[0]}**'
@@ -437,7 +469,8 @@ class LoL(object):
 
     # region EMBED FACTORIES
     @staticmethod
-    def create_help() -> discord.Embed:
+    def create_help() \
+            -> discord.Embed:
         return discord.Embed(title='Helps')
 
     def create_build_order(self, ctx: commands.Context, match: cassiopeia.Match, summoner: cassiopeia.Summoner)\
@@ -493,7 +526,7 @@ class LoL(object):
         return embeds
 
     def create_match(self, ctx: commands.Context, match: cassiopeia.Match, use_bare: bool=False)\
-        -> List[discord.Embed]:
+            -> List[discord.Embed]:
         embeds = []
         embed = utils.create_embed_template(
             description=f'Overview of Match __**{match.id}**__ in __**{match.region.value}**__.',
@@ -739,7 +772,36 @@ class LoL(object):
                             value=ranked_string)
         return [embed]
 
-    def create_timeline(self, ctx: commands.Context, match: cassiopeia.Match) -> List[discord.Embed]:
+    def create_spectate(self, ctx: commands.Context, match: cassiopeia.CurrentMatch, name: str) \
+            -> List[discord.Embed]:
+        embeds = []
+        embed = utils.create_embed_template(
+            description=f'**{Converter.FROM_QUEUE_TO_STRING[match.queue]}** | {match.duration}',
+            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Live Match for {name}',
+            author_url=self.get_live_match_url(match.region.value, name)
+        )
+        for t in [match.blue_team, match.red_team]:
+            for p in t.participants:
+                champion = cassiopeia.get_champion(p.champion.key, 'NA').name
+                string = f'**Is Playing:** {champion}\n'
+                # string += f'**Previously:** {p.rank_last_season.value}\n'
+                string += f'**Has:** {p.summoner_spell_d.name} {p.summoner_spell_f.name}\n'
+                runes = list(p.runes)
+                string += f'**{runes[0].path.value}**\n'
+                for r in runes[:4]:
+                    # r = r.to_dict()
+                    rune = cassiopeia.get_runes('NA')[r.id].name
+                    string += f'\t{rune}\n'
+                string += f'**{runes[4].path.value}**\n'
+                for r in runes[4:]:
+                    string += f'\t{r.name}\n'
+                team = 'Blue' if p.side.value == 100 else 'Red'
+                embed.add_field(name=f' {team} Team: {p.summoner.name}', value=string, inline=False)
+        embeds.append(embed)
+        return embeds
+
+    def create_timeline(self, ctx: commands.Context, match: cassiopeia.Match) \
+            -> List[discord.Embed]:
         embeds = []
         embed = utils.create_embed_template(
             description=f'Timeline of Match __**{match.id}**__ in __**{match.region.value}**__.',
@@ -857,7 +919,8 @@ class LoL(object):
 
     # region DISPLAYS
     @staticmethod
-    async def display_embed(ctx: commands.Context, content: str=None, embeds: list=None) -> None:
+    async def display_embed(ctx: commands.Context, content: str=None, embeds: list=None) \
+            -> None:
         for i, e in enumerate(embeds):
             if i == 0:
                 await ctx.send(content=content, embed=e)
@@ -867,7 +930,8 @@ class LoL(object):
     # endregion
     # region GETTERS
     @staticmethod
-    def get_error_message(error_type: Error, *args) -> str:
+    def get_error_message(error_type: Error, *args) \
+            -> str:
         if error_type == Error.REGION_NOT_FOUND:
             return f'**{args[0]}** not found.'
         elif error_type == Error.PLAYER_NOT_FOUND:
@@ -882,11 +946,20 @@ class LoL(object):
             return f'Amount must be an integer between **{args[0]}** and **{args[1]}**.'
         elif error_type == Error.MATCHES_NOT_FOUND:
             return f'Match **{args[0]}** not found in **{args[1]}**.'
+        elif error_type == Error.NOT_IN_GAME:
+            return f'**{args[0]}** in **{args[1]}** not in game.'
         else:
             return ''
 
     @staticmethod
-    def get_match_history_url(region: str, platform: str, match_id: int, player_id: int=None):
+    def get_live_match_url(region: str, name: str) \
+            -> str:
+        name = name.replace(' ', '')
+        return f'https://lolspectator.tv/spectate/?summoner={name.lower()}&server={region.lower()}'
+
+    @staticmethod
+    def get_match_history_url(region: str, platform: str, match_id: int, player_id: int=None) \
+            -> str:
         if region == 'kr':
             url = f'https://matchhistory.leagueoflegends.co.kr/ko/#match-details/KR/{match_id}'
         else:
@@ -897,17 +970,20 @@ class LoL(object):
         return url
 
     @staticmethod
-    def get_op_gg_url(region: str, name: str) -> str:
+    def get_op_gg_url(region: str, name: str) \
+            -> str:
         name = name.replace(' ', '+')
         return f'http://{region}.op.gg/summoner/userName={name}'
 
     @staticmethod
-    def get_time_stamp(time):
+    def get_time_stamp(time) \
+            -> [int, int]:
         time = time / 1000 / 60
         return int(time), int(time % 1 * 60)
 
     @staticmethod
-    def get_within_bounds(value: int, min_value: int, max_value: int, default: int) -> Union[int, None]:
+    def get_within_bounds(value: int, min_value: int, max_value: int, default: int) \
+            -> Union[int, None]:
         if value is None:
             return default
         if 0 < max_value < value:
@@ -916,21 +992,24 @@ class LoL(object):
             return None
         return value
 
-    def get_amount(self, amount: int) -> Union[int, None]:
+    def get_amount(self, amount: int) \
+            -> Union[int, None]:
         try:
             return self.get_within_bounds(amount, 1, 20, 20)
         except ValueError:
             return None
 
     @staticmethod
-    def get_region(region: str) -> str:
+    def get_region(region: str) \
+            -> str:
         if region is None:
             return 'NA'
         return region if region.upper() in Constant.REGIONS_LIST else None
     # endregion
 
     # region PARSERS
-    def parse_args(self, args: str) -> Union[List[str], None]:
+    def parse_args(self, args: str) \
+            -> Union[List[str], None]:
         try:
             return re.split(' ?{}'.format(self.arg_prefix), args)
         except TypeError:
@@ -958,7 +1037,8 @@ class LoL(object):
     # endregion
     # endregion
 
-    async def react_to(self, msg: discord.Message, emojis: list) -> None:
+    async def react_to(self, msg: discord.Message, emojis: list) \
+            -> None:
         for e in self.bot.emojis:
             if e.name in emojis:
                 await msg.add_reaction(e)
