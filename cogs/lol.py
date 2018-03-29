@@ -10,9 +10,8 @@ from discord.ext import commands
 
 from data import utils
 
-""" Self-contained command module for all things League of Legends.
-
-    All Constant, Mappings, Enumerations, Utility Methods relating to LoL and LoL only will be here.
+""" LoL Cog
+- A self-contained cog that contains commands, data, enumerations, etc relating to LoL.
 """
 
 
@@ -20,14 +19,14 @@ class Error(Enum):
     """
     Enumeration to hold different types of errors.
     """
-    REGION_NOT_FOUND = 0
-    PLAYER_NOT_FOUND = 1
-    MATCHES_NOT_FOUND = 2
-    MASTERIES_NOT_FOUND = 3
-    RANKS_NOT_FOUND = 4
-    INVALID_AMOUNT = 5
-    MATCH_NOT_FOUND = 6
-    NOT_IN_GAME = 7
+    NF_REGION = 0
+    NF_PLAYER = 1
+    NF_MATCHES = 2
+    NF_MASTERIES = 3
+    NF_LEAGUES = 4
+    INV_AMOUNT = 5
+    NF_MATCH = 6
+    NF_LIVE = 7
 
 
 class QueueInfo:
@@ -50,12 +49,15 @@ class QueueInfo:
 
 class Constant:
     """
-    Group of Constants. This includes any lists or dictionaries that contain information.
+    Group of Constants.
     """
+    # Defaults
     DEFAULT_MATCHES = 20
     DEFAULT_REGION = 'NA'
     EMBED_COLOR = 0x18719
+    # URIs
     OP_GG_ICON_URL = 'http://opgg-static.akamaized.net/images/logo/l_logo.png'
+    # Info
     COMMAND_INFO = {
         'player': [
             'player <player> [r <region>]',
@@ -113,22 +115,20 @@ class Constant:
         cassiopeia.Queue.urf: QueueInfo(has_score=False, has_vilemaws=False),
         cassiopeia.Queue.urf_coop_ai: QueueInfo(has_score=False, has_vilemaws=False)
     }
+    # Lists
     REGIONS_LIST = [
         'BR', 'EUNE', 'EUW', 'JP', 'KR', 'LAN', 'LAS', 'NA', 'OCE', 'TR', 'RU', 'PBE'
     ]
-    SPLIT_FOR_BUILD_ORDER = 100
-    SPLIT_FOR_TIMELINE = 30
-
-
-class Converter:
-    """
-    Group of Converters, which are mappings from one type to another (usually a string).
-    """
+    # Splits
+    SPLIT_FOR_BUILD_ORDER = 25
+    SPLIT_FOR_TIMELINE = 25
+    # Constants
     FROM_LANE_TO_STRING = {
         data.Lane.bot_lane: 'Bottom',
         data.Lane.jungle: 'Jungle',
         data.Lane.mid_lane: 'Middle',
-        data.Lane.top_lane: 'Top'
+        data.Lane.top_lane: 'Top',
+        'NONE': ''
     }
     FROM_QUEUE_TO_STRING = {
         cassiopeia.Queue.all_random_summoners_rift: 'Summoner\'s Rift: All Random',
@@ -230,154 +230,84 @@ class LoL(object):
         msg = await ctx.send(content=ctx.author.mention, embed=self.help)
         await self.react_to(msg, ['hellyeah', 'dorawinifred', 'cutegroot', 'dab'])
 
+    @lol.command(name='player', aliases=['profile', 'summoner'])
+    async def _player(self, ctx: commands.Context, name: str, region: str=None, *, args: str=None) \
+            -> None:
+        utils.print_command(ctx.command, [name, region], args)
+        region = self.retrieve_region(region)
+        summoner, matches, masteries, leagues, live = self.retrieve_player(name, region)
+        await self.display_embed(ctx, ctx.author.mention,
+                                 self.create_player(ctx, summoner, matches, masteries, leagues, live))
+
+    @lol.command(name='matches', aliases=['matchlist', 'recent'])
+    async def _matches(self, ctx: commands.Context, name: str, region: str=None, *, args: str=None) \
+            -> None:
+        utils.print_command(ctx.command, [name, region], args)
+        region = self.retrieve_region(region)
+        args = self.parse_args(args)
+        _, amount = self.parse_single_arg(args, ['amount', 'a'], True)
+        amount = self.retrieve_amount(amount, 1, 20)
+        summoner, matches = self.retrieve_matches(name, region, amount)
+        await self.display_embed(ctx, ctx.author.mention, self.create_matches(ctx, summoner, matches))
+
+    @lol.command(name='game', aliases=['match'])
+    async def _game(self, ctx: commands.Context, name: str, index: int, region: str=None, *, args: str=None)\
+            -> None:
+        utils.print_command(ctx.command, [name, index, region], args)
+        region = self.retrieve_region(region)
+        args = self.parse_args(args)
+        use_overview, _ = self.parse_single_arg(args, ['overview', 'o'])
+        match = self.retrieve_match(name, index, region)
+        await self.display_embed(ctx, ctx.author.mention, self.create_match(ctx, match, use_overview))
+
+    @lol.command(name='events', aliases=['history', 'timeline'])
+    async def _events(self, ctx: commands.Context, name: str, index: int, region: str=None, *, args: str=None) \
+            -> None:
+        utils.print_command(ctx.command, [name, index, region], args)
+        region = self.retrieve_region(region)
+        args = self.parse_args(args)
+        use_items, _ = self.parse_single_arg(args, ['items', 'i'])
+        use_single, _ = self.parse_single_arg(args, ['single', 's'])
+        use_items_only, _ = self.parse_single_arg(args, ['itemsonly', 'io'])
+        summoner, match = self.retrieve_events(name, index, region)
+        await self.display_embed(ctx, ctx.author.mention, self.create_timeline(ctx, match, summoner, use_items,
+                                                                               use_single, use_items_only))
+
     @lol.command(name='buildorder', aliases=['items'])
     async def build_order(self, ctx: commands.Context, name: str, index: int, *, args: str = None) \
             -> None:
         utils.print_command(ctx.command, [name, index], args)
-        # Validate Inputs, Parse and Extract Args.
+        # Parse args
         args = self.parse_args(args)
         # Get region
         _, region = self.parse_single_arg(args, 'r', True)
         region_temp = self.get_region(region)
         if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
+            raise commands.UserInputError(self.get_error_message(Error.NF_REGION, region))
         region = region_temp
-        # Retrieve Data
-        # Get Summoner
+        # Get summoner
         try:
             summoner = cassiopeia.get_summoner(name=name, region=region.upper())
         except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
         if index < 1000:
             # Summoner Name and Match Index given
             # Get Matches
             try:
                 matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
             except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
+                raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
             # Get Match
             match = matches[summoner.name]
         else:
             try:
                 match = cassiopeia.get_match(id=index, region=region.upper())
             except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
+                raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
         # Create and Display Embed
         await self.display_embed(ctx, ctx.author.mention, self.create_build_order(ctx, match, summoner))
 
-    @lol.command()
-    async def match(self, ctx: commands.Context, identifier: str, index: int=None, *, args: str=None)\
-            -> None:
-        utils.print_command(ctx.command, [identifier, index], args)
-        # Validate Inputs, Parse and Extract Args.
-        try:
-            mid = int(identifier)
-        except ValueError:
-            mid = None
-        args = self.parse_args(args)
-        # Get region
-        _, region = self.parse_single_arg(args, 'r', True)
-        region_temp = self.get_region(region)
-        if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
-        region = region_temp
-        # Get options
-        use_bare, _ = self.parse_single_arg(args, 'b')
-        # Retrieve Data
-        if mid is not None:
-            # Match ID given
-            # Get Match
-            try:
-                match = cassiopeia.get_match(id=mid, region=region.upper())
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, identifier, region))
-        elif index is None:
-            # Summoner Name given but no index
-            raise commands.MissingRequiredArgument(index)
-        else:
-            # Summoner Name and Match Index given
-            # Get Summoner
-            try:
-                summoner = cassiopeia.get_summoner(name=identifier, region=region.upper())
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, identifier, region))
-            # Get Matches
-            try:
-                matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, identifier, region))
-            # Get Match
-            match = list(matches)[0]
-        # Create and Display Embed
-        await self.display_embed(ctx, ctx.author.mention, self.create_match(ctx, match, use_bare))
 
-    @lol.command(aliases=['matchlist', 'recent'])
-    async def matches(self, ctx: commands.Context, name: str, *, args: str=None) \
-            -> None:
-        utils.print_command(ctx.command, [name], args)
-        # Validate Inputs, Parse and Extract Args.
-        args = self.parse_args(args)
-        # Get region
-        _, region = self.parse_single_arg(args, 'r', True)
-        region_temp = self.get_region(region)
-        if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
-        region = region_temp
-        # Get amount
-        _, amount = self.parse_single_arg(args, 'a', True)
-        amount = self.get_amount(amount)
-        if amount is None:
-            raise commands.BadArgument(self.get_error_message(Error.INVALID_AMOUNT, 1, 20))
-        # Retrieve Data
-        # Get Summoner
-        try:
-            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
-        # Get matches
-        try:
-            matches = cassiopeia.get_match_history(summoner=summoner, end_index=amount)
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
-        # Create and Display Embed
-        await self.display_embed(ctx, ctx.author.mention, self.create_matches(ctx, summoner, matches))
-
-    @lol.command(aliases=['summoner', 'profile'])
-    async def player(self, ctx: commands.Context, name: str, *, args: str=None) \
-            -> None:
-        utils.print_command(ctx.command, [name], args)
-        # Validate Inputs, Parse and Extract Args.
-        args = self.parse_args(args)
-        # Get region
-        _, region = self.parse_single_arg(args, 'r', True)
-        region_temp = self.get_region(region)
-        if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
-        region = region_temp
-        # Retrieve Data
-        # Get Summoner
-        try:
-            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
-        # Get Matches
-        try:
-            matches = cassiopeia.get_match_history(summoner=summoner, end_index=20)
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, name, region))
-        # Get Masteries
-        try:
-            masteries = cassiopeia.get_champion_masteries(summoner=summoner, region=summoner.region)
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.MASTERIES_NOT_FOUND, name, region))
-        # Get Leagues
-        try:
-            leagues = cassiopeia.get_league_positions(summoner=summoner)
-        except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.RANKS_NOT_FOUND, name, region))
-        # Create and Display Embed
-        await self.display_embed(ctx, ctx.author.mention,
-                                 self.create_player(ctx, summoner, matches, masteries, leagues))
 
     @lol.command(aliases=['live'])
     async def spectate(self, ctx: commands.Context, name: str, *, args: str=None) \
@@ -389,82 +319,639 @@ class LoL(object):
         _, region = self.parse_single_arg(args, 'r', True)
         region_temp = self.get_region(region)
         if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
+            raise commands.UserInputError(self.get_error_message(Error.NF_REGION, region))
         region = region_temp
         # Retrieve Data
         # Get Summoner
         try:
             summoner = cassiopeia.get_summoner(name=name, region=region.upper())
         except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, name, region))
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
         # Get Live Match
         try:
             match = cassiopeia.get_current_match(summoner=summoner, region=region.upper())
         except datapipelines.NotFoundError:
-            raise commands.UserInputError(self.get_error_message(Error.NOT_IN_GAME, name, region))
+            raise commands.UserInputError(self.get_error_message(Error.NF_LIVE, name, region))
         # Create and Display Embed
         await self.display_embed(ctx, ctx.author.mention, self.create_spectate(ctx, match, name))
-
-    @lol.command(aliases=['events', 'history'])
-    async def timeline(self, ctx: commands.Context, identifier: str, index: int = None, *, args: str = None) \
-            -> None:
-        """Until Cassiopeia fixes"""
-        utils.print_command(ctx.command, [identifier, index], args)
-        # Validate Inputs, Parse and Extract Args.
-        try:
-            mid = int(identifier)
-        except ValueError:
-            mid = None
-        args = self.parse_args(args)
-        # Get region
-        _, region = self.parse_single_arg(args, 'r', True)
-        region_temp = self.get_region(region)
-        if region_temp is None:
-            raise commands.UserInputError(self.get_error_message(Error.REGION_NOT_FOUND, region))
-        region = region_temp
-        # Retrieve Data
-        if mid is not None:
-            # Match ID given
-            # Get Match
-            try:
-                match = cassiopeia.get_match(id=mid, region=region.upper())
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, identifier, region))
-        elif index is None:
-            # Summoner Name given but no index
-            raise commands.MissingRequiredArgument(index)
-        else:
-            # Summoner Name and Match Index given
-            # Get Summoner
-            try:
-                summoner = cassiopeia.get_summoner(name=identifier, region=region.upper())
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.PLAYER_NOT_FOUND, identifier, region))
-            # Get Matches
-            try:
-                matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
-            except datapipelines.NotFoundError:
-                raise commands.UserInputError(self.get_error_message(Error.MATCHES_NOT_FOUND, identifier, region))
-            # Get Match
-            match = matches[summoner.name]
-        # Create and Display Embed
-        await self.display_embed(ctx, ctx.author.mention, self.create_timeline(ctx, match))
     # endregion
 
-    # region ERROR
-    @staticmethod
-    async def on_command_error(ctx: commands.Context, error: commands.CommandError) \
-            -> None:
-        if isinstance(error, commands.MissingRequiredArgument):
-            splits = re.split(' ', error.__str__())
-            string = f'**{splits[0]}**'
-            await ctx.send(' '.join([string] + splits[1:]))
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send(error)
-        elif isinstance(error, commands.UserInputError):
-            await ctx.send(error)
+    # region PLAYER
+    def retrieve_player(self, name, region) \
+            -> Tuple[cassiopeia.Summoner, cassiopeia.MatchHistory, cassiopeia.ChampionMasteries,
+                     cassiopeia.LeagueEntries, cassiopeia.CurrentMatch]:
+        # Get summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
+        # Get matches
+        try:
+            matches = cassiopeia.get_match_history(summoner=summoner, region=summoner.region,
+                                                   end_index=Constant.DEFAULT_MATCHES)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
+        # Get masteries
+        try:
+            masteries = cassiopeia.get_champion_masteries(summoner=summoner, region=summoner.region)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_MASTERIES, name, region))
+        # Get leagues
+        try:
+            leagues = cassiopeia.get_league_positions(summoner=summoner, region=summoner.region)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_LEAGUES, name, region))
+        # Get live
+        try:
+            live = cassiopeia.get_current_match(summoner=summoner, region=summoner.region)
+        except datapipelines.NotFoundError:
+            live = None
+        return summoner, matches, masteries, leagues, live
+
+    def create_player(self, ctx: commands.Context, summoner: cassiopeia.Summoner, matches: cassiopeia.MatchHistory,
+                      masteries: cassiopeia.ChampionMasteries, leagues: cassiopeia.LeagueEntries,
+                      live: cassiopeia.CurrentMatch) \
+            -> List[discord.Embed]:
+        embed = utils.create_embed_template(
+            description=f'Overview of __**{summoner.name}**__ in __**{summoner.region.value}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, thumbnail=summoner.profile_icon.url,
+            author=f'OP.GG: {summoner.name}', author_url=self.get_op_gg_url(summoner.region.value, summoner.name),
+            icon_url=Constant.OP_GG_ICON_URL
+        )
+        # Add Basic Info
+        embed.add_field(name='__Core:__', value=f'**Level:** {summoner.level}', inline=False)
+        # Add Recent Game Info
+        embed.add_field(name=f'__Recent {len(matches)} Games:__', value=self.build_player_stats(summoner, matches))
+        # Add Mastery Info
+        embed.add_field(name=f'__Top {len(list(masteries)[:5])} Champions:__',
+                        value=self.build_player_masteries_string(masteries))
+        # Add Ranked Info
+        for l in leagues:
+            embed.add_field(name=f'__{utils.get_sanitized_value(l.queue.value)}:__', value=self.build_player_ranks(l))
+        # Add Live Game Info
+        embed.add_field(name='__**Live Match**__', value=self.build_player_live(summoner, live), inline=False)
+        return [embed]
+
+    def build_player_stats(self, summoner: cassiopeia.Summoner, matches: cassiopeia.MatchHistory) \
+            -> str:
+        games, wins, kills, deaths, assists, vision, cs = len(matches), 0, 0, 0, 0, 0, 0
+        for m in matches:
+            player = m.participants[summoner]
+            stats = player.stats
+            if player.team.win:
+                wins += 1
+            kills += stats.kills
+            deaths += stats.deaths
+            assists += stats.assists
+            vision += stats.vision_score
+            cs += self.get_total_cs(m.queue, stats.total_minions_killed, stats.neutral_minions_killed)
+        losses = games - wins
+        if games > 0:
+            kills /= games
+            deaths /= games
+            assists /= games
+            vision /= games
+            cs /= games
+        return f'**W/L:** {wins}W / {losses}L\n**Win Rate:** {self.get_win_rate(wins, losses):.2f}%\n' \
+               f'**KDA:** {kills:.2f} / {deaths:.2f} / {assists: .2f}  ' \
+               f'**R:** {self.get_kda(kills, deaths, assists):.2f}\n' \
+               f'**CS:** {cs:.2f}  **VS:** {vision:.2f}' \
+
+    def build_player_masteries_string(self, masteries: cassiopeia.ChampionMasteries) \
+            -> str:
+        top_5 = list(masteries)[:5]
+        if len(top_5) < 1:
+            return 'No champions mastered.'
+        string = ''
+        for i, m in enumerate(top_5):
+            string += f'{i + 1}. **{self.get_champion_name_in_english(m.champion.key)}** ' \
+                      f'(**{m.level}**) {m.points} pts.\n'
+        return string
+
+    def build_player_ranks(self, league: core.league.LeagueEntry) \
+            -> str:
+        win_rate = self.get_win_rate(league.wins, league.losses)
+        ranked_string = f'**Name:** {league.name}\n**Rank:** {league.tier.value} {league.division.value}\n' \
+                        f'**W/L:** {league.wins}W / {league.losses}L' \
+                        f'  **Win Rate:** {win_rate:.2f}%\n**LP:** {league.league_points}\n'
+        if league.fresh_blood:
+            ranked_string += 'Fresh Blood. '
+        if league.hot_streak:
+            ranked_string += 'Hot Streak. '
+        if league.veteran:
+            ranked_string += 'Veteran. '
+        return ranked_string
+
+    def build_player_live(self, summoner: cassiopeia.Summoner, live: cassiopeia.CurrentMatch) \
+            -> str:
+        if live is None:
+            return f'Not currently playing.'
         else:
-            raise error
+            player = None
+            for p in live.participants:
+                if p.summoner.name == summoner.name:
+                    player = p
+                    break
+            return f'Playing **{self.get_champion_name_in_english(player.champion.key)}** in ' \
+                   f'**{Constant.FROM_QUEUE_TO_STRING[live.queue]}** | **{live.duration}**'
+    # endregion
+
+    # region MATCHES
+    def retrieve_matches(self, name, region, amount):
+        # Get summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
+        # Get matches
+        try:
+            matches = cassiopeia.get_match_history(summoner=summoner, end_index=amount)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
+        return summoner, matches
+
+    def create_matches(self, ctx: commands.Context, summoner: cassiopeia.Summoner, matches: cassiopeia.MatchHistory)\
+            -> List[discord.Embed]:
+        embed = utils.create_embed_template(
+            description=f'{len(matches)} most recent matches of '
+                        f'__**{summoner.name}**__ in __**{summoner.region.value}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, thumbnail=summoner.profile_icon.url,
+            author=f'OP.GG: {summoner.name}', author_url=self.get_op_gg_url(summoner.region.value, summoner.name),
+            icon_url=Constant.OP_GG_ICON_URL
+        )
+        # Add Basic Info
+        for i, m in enumerate(matches):
+            embed.add_field(name=f'{i + 1}. __**{m.id}:**__',
+                            value=self.build_matches_stats(summoner, m),
+                            inline=False)
+        return [embed]
+
+    def build_matches_stats(self, summoner, match):
+        player = match.participants[summoner]
+        stats = player.stats
+        return f'\t**{self.get_result_string(player.team.win)}**\n' \
+               f'\t**{Constant.FROM_SEASON_TO_STRING[match.season]}**\n' \
+               f'\t**{Constant.FROM_QUEUE_TO_STRING[match.queue]}**\n\t**Duration:** {match.duration}\n' \
+               f'\t**Played** {self.get_champion_name_in_english(player.champion.key)}\n' \
+               f'\t**KDA:** {stats.kills} / {stats.deaths} / {stats.assists}\n' \
+               f'\t**CS:** {self.get_total_cs(match.queue, stats.total_minions_killed, stats.neutral_minions_killed)}' \
+               f'  {self.get_vs_string(match.queue, stats)}'
+
+    # endregion
+
+    # region MATCH
+    def retrieve_match(self, name: str, index: int, region: str) \
+            -> cassiopeia.Match:
+        # Get summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
+        # Get matches
+        try:
+            matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
+        # Get match
+        return list(matches)[0]
+
+    def create_match(self, ctx: commands.Context, match: cassiopeia.Match, use_overview: bool)\
+            -> List[discord.Embed]:
+        embeds = []
+        embed = utils.create_embed_template(
+            description=f'Overview of Match __**{match.id}**__ in __**{match.region.value}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
+            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+        )
+        queue = Constant.QUEUE_INFO[match.queue]
+        # Add core
+        embed.add_field(name='__Core Info:__',
+                        value=f'**{Constant.FROM_SEASON_TO_STRING[match.season]}**\n'
+                              f'**{Constant.FROM_QUEUE_TO_STRING[match.queue]}**\n'
+                              f'**Duration:** {match.duration}\n',
+                        inline=False)
+        # Add teams
+        for t in [match.blue_team, match.red_team]:
+            embed.add_field(name=f'__TEAM {t.side.value // 100}__',
+                            value=self.build_match_team(queue, t),
+                            inline=True)
+        embeds.append(embed)
+        # Add players
+        for t in [match.blue_team, match.red_team]:
+            for p in t.participants:
+                embed = utils.create_embed_template(
+                    description=f'Overview of __**Team {t.side.value // 100}**__\'s __**{p.summoner.name}**__.',
+                    color=Constant.EMBED_COLOR, requester=ctx.author, author=f'OP.GG: {p.summoner.name}',
+                    author_url = self.get_op_gg_url(p.summoner.region.value, p.summoner.name),
+                    icon_url = Constant.OP_GG_ICON_URL, thumbnail=p.summoner.profile_icon.url
+                )
+                stats = p.stats
+                # Add overview + items
+                embed.add_field(name='__OVERVIEW:__', value=self.build_match_player_overview(queue, p))
+                # Add core stats
+                embed.add_field(name='__BASIC:__', value=self.build_match_player_core(queue, stats))
+                # Add advanced stats
+                if not use_overview:
+                    embed.add_field(name='__ADVANCED:__', value=self.build_match_player_advanced(queue, stats))
+                # Add runes
+                embed.add_field(name='__RUNES:__', value=self.build_match_player_runes(p))
+                embeds.append(embed)
+        return embeds
+    
+    def build_match_team(self, queue: QueueInfo, team: core.match.Team) \
+            -> str:
+        result = 'VICTORY' if team.win else 'DEFEAT'
+        string = f'**{result}**\n'
+        if queue.has_towers:
+            string += f'**Towers:** {team.tower_kills}'
+            if team.first_tower:
+                string += '  Got **First Tower.**'
+            string += '\n'
+            string += f'**Inhibitors:** {team.inhibitor_kills}'
+            if team.first_inhibitor:
+                string += '  Got **First Inhibitor.**'
+            string += '\n'
+        if queue.has_dragons:
+            string += f'**Dragons:** {team.dragon_kills}'
+            if team.first_dragon:
+                string += '  Got **First Dragon.**'
+            string += '\n'
+        if queue.has_barons:
+            string += f'**Barons:** {team.baron_kills}'
+            if team.first_baron:
+                string += '  Got **First Baron.**'
+            string += '\n'
+        if queue.has_heralds:
+            string += f'**Herald:** {team.rift_herald_kills}'
+            if team.first_rift_herald:
+                string += '  Got **First Herald.**'
+            string += '\n'
+        if queue.has_vilemaws:
+            string += f'**Vile\'Maws:** {team.vilemaw_kills}\n'
+        if team.first_blood:
+            string += 'Got **First Blood.**\n'
+        # Bans are bugged
+        # if team.bans:
+        #     string += '**BANS:**\n'
+        #     for i, b in enumerate(team.bans):
+        #         champion = cassiopeia.get_champion(b.key, 'NA')
+        #         champion = champion.name if champion is not None else 'None'
+        #         string += f'{i + 1}. {champion}\n'
+        return string
+
+    def build_match_player_overview(self, queue: QueueInfo, participant: core.match.Participant) \
+            -> str:
+        stats = participant.stats
+        string = f'**Played ** {self.get_champion_name_in_english(participant.champion.key)} '
+        if queue.has_lanes:
+            string += self.get_role_string(participant.lane, participant.role)
+        string += '\n'
+        string += f'**Previously:** {participant.rank_last_season.value}\n'
+        string += f'**Spells:** {participant.summoner_spell_d.name} {participant.summoner_spell_f.name}\n'
+        string += '**Final Build:**\n'
+        for i, j in enumerate(stats.items):
+            item = cassiopeia.get_items('NA')[j.id].name if j is not None else 'None'
+            string += f'{i + 1}. {item}\n'
+        return string
+
+    def build_match_player_core(self, queue: QueueInfo, stats: core.match.ParticipantStats) \
+            -> str:
+        string = f'**KDA:** {stats.kills} / {stats.deaths} / {stats.assists}  '
+        string += f'**Level:** {stats.level}\n'
+        if queue.has_score:
+            string += f'**Score:** {stats.total_player_score}\n'
+            string += f'\t**Combat:** {stats.combat_player_score}\n'
+            string += f'\t**Objective:** {stats.objective_player_score}\n'
+        string += f'**CS:** {self.get_total_cs(queue, stats.total_minions_killed, stats.neutral_minions_killed)}'
+        if queue.has_monsters:
+            string += f'  **Monsters:** {stats.neutral_minions_killed}\n'
+            string += f'\t**In Team Jungle:** {stats.neutral_minions_killed_team_jungle}\n'
+            string += f'\t**In Enemy Jungle:** {stats.neutral_minions_killed_enemy_jungle}\n'
+        else:
+            string += '\n'
+        if queue.has_vision:
+            string += f'**Vision Score:** {stats.vision_score}\n'
+            string += f'\t**Control Wards:** {stats.vision_wards_bought_in_game}\n'
+            string += f'\t**Wards Placed:** {stats.wards_placed}\n'
+            string += f'\t**Wards Killed:** {stats.wards_killed}\n'
+        string += f'**Crowd Control:** {stats.total_time_crowd_control_dealt}\n'
+        string += f'**Gold Spent / Earned:** {stats.gold_spent} / {stats.gold_earned}\n'
+        return string
+
+    def build_match_player_advanced(self, queue: QueueInfo, stats: core.match.ParticipantStats) \
+            -> str:
+        string = f'**Killing Sprees:** {stats.killing_sprees}  **Largest:** {stats.largest_killing_spree}\n'
+        string += f'**Largest Multi Kill:** {stats.largest_multi_kill}\n'
+        string += f'\t**Double Kills:** {stats.double_kills}\n'
+        string += f'\t**Triple Kills:** {stats.triple_kills}\n'
+        string += f'\t**Quadra Kills:** {stats.quadra_kills}\n'
+        string += f'\t**Penta Kills:** {stats.penta_kills}\n'
+        string += f'\t**Unreal Kills:** {stats.unreal_kills}\n'
+        if stats.first_blood_kill or stats.first_blood_assist:
+            string += '\tGot **First Blood**.\n'
+        string += f'**Total Damage Dealt:** {stats.total_damage_dealt}\n'
+        string += f'\t**Magical:** {stats.magic_damage_dealt}\n'
+        string += f'\t**Physical:** {stats.physical_damage_dealt}\n'
+        string += f'\t**True:** {stats.true_damage_dealt}\n'
+        string += f'**Total To Champions:** {stats.total_damage_dealt_to_champions}\n'
+        string += f'\t**Magical:** {stats.magic_damage_dealt_to_champions}\n'
+        string += f'\t**Physical:** {stats.physical_damage_dealt_to_champions}\n'
+        string += f'\t**True:** {stats.true_damage_dealt_to_champions}\n'
+        string += f'**Total Damage Taken:** {stats.total_damage_taken}\n'
+        string += f'\t**Magical:** {stats.magical_damage_taken}\n'
+        string += f'\t**Physical:** {stats.physical_damage_taken}\n'
+        string += f'\t**True:** {stats.true_damage_taken}\n'
+        string += f'**Damage Self Mitigated:** {stats.damage_self_mitigated}\n'
+        string += f'**Total Healing:** {stats.total_heal}\n'
+        string += f'**Largest Critical Strike:** {stats.largest_critical_strike}\n'
+        string += f'**Damage to Objectives:** {stats.damage_dealt_to_objectives}\n'
+        if queue.has_towers:
+            string += f'\t**Damage to Towers:** {stats.damage_dealt_to_turrets}\n'
+            string += f'\t**Tower Kills:** {stats.turret_kills}'
+            if stats.first_tower_kill or stats.first_tower_assist:
+                string += '  Got **First Tower**.'
+            string += '\n'
+            string += f'\t**Inhibitor Kills:** {stats.inhibitor_kills}'
+            if stats.first_inhibitor_kill or stats.first_inhibitor_assist:
+                string += '  Got **First Inhibitor**.'
+            string += '\n'
+        return string
+
+    def build_match_player_runes(self, participant: core.match.Participant) \
+            -> str:
+        runes = list(participant.runes)
+        string = f'**Primary:** {runes[0].path.value}\n'
+        for r in runes[:4]:
+            if r.is_keystone:
+                rune = f'**{r.name}**'
+            else:
+                rune = f'{r.name}'
+            string += f'\t{rune}\n'
+        string += f'**Secondary:** {runes[4].path.value}\n'
+        for r in runes[4:]:
+            string += f'\t{r.name}\n'
+        return string
+    # endregion
+
+    # region EVENTS
+    def retrieve_events(self, name: str, index: int, region: str) \
+            -> Tuple[cassiopeia.Summoner, cassiopeia.Match]:
+        # Get summoner
+        try:
+            summoner = cassiopeia.get_summoner(name=name, region=region.upper())
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_PLAYER, name, region))
+        # Get matches
+        try:
+            matches = cassiopeia.get_match_history(summoner=summoner, begin_index=index - 1, end_index=index)
+        except datapipelines.NotFoundError:
+            raise commands.UserInputError(self.get_error_message(Error.NF_MATCHES, name, region))
+        # Get match
+        return summoner, matches[summoner.name]
+
+    def create_timeline(self, ctx: commands.Context, match: cassiopeia.Match, summoner: cassiopeia.Summoner,
+                        use_items: bool, use_single: bool, use_items_only: bool) \
+            -> List[discord.Embed]:
+        embeds = []
+
+        participants = match.blue_team.participants + match.red_team.participants
+        pid = None
+        cid = None
+        for p in participants:
+            if p.summoner.name == summoner.name:
+                pid = p.id
+                cid = p.champion.key
+                break
+        champion = self.get_champion_name_in_english(cid)
+
+        embed = utils.create_embed_template(
+            description=f'Timeline of Match __**{match.id}**__ in __**{match.region.value}**__.\n'
+                        f'__**{summoner.name}**__ played __**{champion}**__.',
+            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
+            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+        )
+        types = ['CHAMPION_KILL', 'BUILDING_KILL', 'ELITE_MONSTER_KILL']
+        items = ['ITEM_PURCHASED', 'ITEM_SOLD', 'ITEM_UNDO']
+        if use_items:
+            types += items
+        if use_items_only:
+            types = items
+        events = self.build_events_event_list(match, types, items, use_single, pid)
+        # Parse events
+        for i, e in enumerate(events):
+            if e[0].type == 'CHAMPION_KILL':
+                string = self.build_events_champion_kill(e[0], participants, e[1], use_single, pid)
+            elif e[0].type == 'BUILDING_KILL':
+                string = self.build_events_building_kill(e[0], participants, e[1], use_single, pid)
+            elif e[0].type == 'ELITE_MONSTER_KILL':
+                string = self.build_events_elite_monster_kill(e[0], participants, use_single)
+            elif e[0].type == 'ITEM_PURCHASED':
+                string = self.build_events_item_purchased(e[0], participants, use_single)
+            elif e[0].type == 'ITEM_SOLD':
+                string = self.build_events_item_sold(e[0], participants, use_single)
+            elif e[0].type == 'ITEM_UNDO':
+                string = self.build_events_item_undo(e[0], participants, use_single)
+            else:
+                string = ''
+            embed.add_field(name=f'**{self.get_time_stamp_string(e[0].timestamp)}.**\n', value=string, inline=False)
+            # TODO: Add events for Ascension, Poro King
+            if i % Constant.SPLIT_FOR_TIMELINE >= Constant.SPLIT_FOR_TIMELINE - 1:
+                embeds.append(embed)
+                embed = utils.create_embed_template(
+                    description=f'Timeline of Match __**{match.id}**__ in __**{match.region.value}**__.',
+                    color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
+                    author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
+                )
+            if len(events) - i == 1:
+                embeds.append(embed)
+        return embeds
+
+    def build_events_event_list(self, match: cassiopeia.Match, types: List[str], items: List[str],
+                                use_single: bool, pid: int) \
+            -> List[Tuple[core.match.Event, Union[str, None]]]:
+        events = []
+        for f in match.timeline.frames:
+            for e in f.events:
+                if e.type in types:
+                    if use_single:
+                        if e.type == 'CHAMPION_KILL':
+                            # Can be the killer, assist, or victim
+                            if pid == e.killer_id:
+                                events.append([e, 'KILLER'])
+                            elif pid == e.victim_id:
+                                events.append([e, 'VICTIM'])
+                            elif pid in e.assisting_participants:
+                                events.append([e, 'ASSIST'])
+                        elif e.type == 'BUILDING_KILL':
+                            # Can be the killer or assist
+                            if pid == e.killer_id:
+                                events.append([e, 'KILLER'])
+                            elif pid in e.assisting_participants:
+                                events.append([e, 'ASSIST'])
+                        elif e.type == 'ELITE_MONSTER_KILL':
+                            # Can be the killer
+                            if pid == e.killer_id:
+                                events.append([e, 'KILLER'])
+                        elif e.type in items:
+                            if pid == e.participant_id:
+                                events.append([e, None])
+                        else:
+                            events.append([e, None])
+                    else:
+                        events.append([e, None])
+        return events
+
+    def build_events_champion_kill(self, event: core.match.Event, participants: List[core.match.Participant],
+                                   how: str, use_single: bool, pid: int) \
+            -> str:
+        # Killer
+        killer = participants[event.killer_id - 1]
+        team = killer.side.value // 100
+        killer = f'{self.get_champion_name_in_english(killer.champion.key)} ({killer.summoner.name})'
+        # Victim
+        victim = participants[event.victim_id - 1]
+        victim = f'{self.get_champion_name_in_english(victim.champion.key)} ({victim.summoner.name})'
+        if use_single:
+            if how == 'KILLER':
+                string = f'Slew **{victim}**.\n'
+            elif how == 'VICTIM':
+                string = f'Slain by **{killer}**.\n'
+            else:
+                string = f'Helped **{killer}** slay **{victim}**.\n'
+            if event.assisting_participants:
+                if how == 'ASSIST' and len(event.assisting_participants) > 1:
+                    string += '\tAlso assisted by:\n'
+                elif how != 'ASSIST':
+                    string += '\tAssisted by:\n'
+            for a in event.assisting_participants:
+                if how == 'ASSIST' and a == pid:
+                    continue
+                assist = participants[a - 1]
+                string += f'\t\t**{self.get_champion_name_in_english(assist.champion.key)} ({assist.summoner.name})**\n'
+        else:
+            string = f'**Team {team} - {killer}** has slain **{victim}**.\n'
+            if event.assisting_participants:
+                string += '\tAssisted by:\n'
+            for a in event.assisting_participants:
+                assist = participants[a - 1]
+                string += f'\t\t**{self.get_champion_name_in_english(assist.champion.key)} ({assist.summoner.name})**\n'
+        return string
+
+    def build_events_building_kill(self, event: core.match.Event, participants: List[core.match.Participant],
+                                   how: str, use_single: bool, pid: int) \
+            -> str:
+        # Killer
+        killer = participants[event.killer_id - 1]
+        team = killer.side.value // 100
+        killer = f'{self.get_champion_name_in_english(killer.champion.key)} ({killer.summoner.name})'
+        # Until timeline's event.lane_type is fixed
+        # if event.lane_type == 'MID_LANE':
+        #     lane = 'Middle'
+        # elif event.lane_type == 'BOT_LANE':
+        #     lane = 'Bottom'
+        # elif event.lane_type == 'TOP_LANE':
+        #     lane = 'Top'
+        # else:
+        #     lane = None
+        # print(lane)
+        # Victim
+        if event.tower_type == 'NEXUS_TURRET':
+            victim = 'Nexus Tower'
+        elif event.building_type == 'INHIBITOR_BUILDING':
+            victim = 'Inhibitor'
+        elif event.tower_type == 'INNER_TURRET':
+            victim = 'Inner Tower'
+        elif event.tower_type == 'OUTER_TURRET':
+            victim = 'Outer Tower'
+        elif event.tower_type == 'BASE_TURRET':
+            victim = 'Base Tower'
+
+        if use_single:
+            if how == 'KILLER':
+                string = f'Destroyed the **{victim}**.\n'
+            else:
+                string = f'Helped **{killer}** destroy the **{victim}**.\n'
+            if event.assisting_participants:
+                if how == 'ASSIST' and len(event.assisting_participants) > 1:
+                    string += '\tAlso assisted by:\n'
+                elif how != 'ASSIST':
+                    string += '\tAssisted by:\n'
+            for a in event.assisting_participants:
+                if how == 'ASSIST' and a == pid:
+                    continue
+                assist = participants[a - 1]
+                string += f'\t\t**{self.get_champion_name_in_english(assist.champion.key)} ({assist.summoner.name})**\n'
+        else:
+            string = f'**Team {team} - {killer}** has destroyed the **{victim}**.\n'
+            if event.assisting_participants:
+                string += '\tAssisted by:\n'
+            for a in event.assisting_participants:
+                assist = participants[a - 1]
+                string += f'\t\t**{self.get_champion_name_in_english(assist.champion.key)} ({assist.summoner.name})**\n'
+        return string
+
+    def build_events_elite_monster_kill(self, event: core.match.Event, participants: List[core.match.Participant],
+                                        use_single: bool) \
+            -> str:
+        # Killer
+        killer = participants[event.killer_id - 1]
+        team = killer.side.value // 100
+        killer = f'{self.get_champion_name_in_english(killer.champion.key)} ({killer.summoner.name})'
+        # Victim
+        if event.monster_type == 'BARON_NASHOR':
+            victim = 'Baron'
+        elif event.monster_type == 'RIFTHERALD':
+            victim = 'Rift Herald'
+        elif event.monster_type == 'VILE_MAW':
+            victim = 'Vile\'Maw'
+        elif event.monster_type == 'DRAGON':
+            victim = 'Dragon'
+            # Monster Sub Type is bugged
+            # if event.monster_sub_type == 'WATER_DRAGON':
+            #     victim = 'Ocean Dragon'
+            # elif event.monster_sub_type == 'AIR_DRAGON':
+            #     victim = 'Cloud Dragon'
+            # elif event.monster_sub_type == 'EARTH_DRAGON':
+            #     victim = 'Mountain Dragon'
+            # elif event.monster_sub_type == 'FIRE_DRAGON':
+            #     victim = 'Infernal Dragon'
+            # elif event.monster_sub_type == 'ELDER_DRAGON':
+            #     victim = 'Elder Dragon'
+        if use_single:
+            string = f'Slew the **{victim}**.\n'
+        else:
+            string = f'**Team {team} - {killer}** has slain the **{victim}**.\n'
+        return string
+
+    def build_events_item_purchased(self, event: core.match.Event, participants: List[core.match.Participant],
+                                    use_single: bool) \
+            -> str:
+        if use_single:
+            return f'Bought **{self.get_item_name(event.item_id)}**.'
+        # Buyer
+        buyer = participants[event.participant_id - 1]
+        buyer = f'{self.get_champion_name_in_english(buyer.champion.key)} ({buyer.summoner.name})'
+        return f'**{buyer}** has bought **{self.get_item_name(event.item_id)}**.'
+
+    def build_events_item_sold(self, event: core.match.Event, participants: List[core.match.Participant],
+                                    use_single: bool) \
+            -> str:
+        if use_single:
+            return f'Sold **{self.get_item_name(event.item_id)}**.'
+        # Buyer
+        buyer = participants[event.participant_id - 1]
+        buyer = f'{self.get_champion_name_in_english(buyer.champion.key)} ({buyer.summoner.name})'
+        return f'**{buyer}** has sold **{self.get_item_name(event.item_id)}**.'
+
+    def build_events_item_undo(self, event: core.match.Event, participants: List[core.match.Participant],
+                                    use_single: bool) \
+            -> str:
+        if use_single:
+            return f'Undid **{self.get_item_name(event.before_id)}**.'
+        # Buyer
+        buyer = participants[event.participant_id - 1]
+        buyer = f'{self.get_champion_name_in_english(buyer.champion.key)} ({buyer.summoner.name})'
+        return f'**{buyer}** has undone **{self.get_item_name(event.before_id)}**.'
     # endregion
 
     # region EMBED FACTORIES
@@ -472,6 +959,8 @@ class LoL(object):
     def create_help() \
             -> discord.Embed:
         return discord.Embed(title='Helps')
+
+
 
     def create_build_order(self, ctx: commands.Context, match: cassiopeia.Match, summoner: cassiopeia.Summoner)\
             -> List[discord.Embed]:
@@ -501,7 +990,7 @@ class LoL(object):
             string = ''
             if e.type == 'ITEM_PURCHASED':
                 item = cassiopeia.get_items('NA')[e.item_id].name
-                string += f'Bought **{item}**.'
+                string += f'Bought **{self.get_item_name(e.item_id)}**.'
             elif e.type == 'ITEM_SOLD':
                 item = cassiopeia.get_items('NA')[e.item_id].name
                 string += f'Sold **{item}**.'
@@ -525,258 +1014,17 @@ class LoL(object):
                 embeds.append(embed)
         return embeds
 
-    def create_match(self, ctx: commands.Context, match: cassiopeia.Match, use_bare: bool=False)\
-            -> List[discord.Embed]:
-        embeds = []
-        embed = utils.create_embed_template(
-            description=f'Overview of Match __**{match.id}**__ in __**{match.region.value}**__.',
-            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
-            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
-        )
-        queue = Constant.QUEUE_INFO[match.queue]
-        # Add Core Info
-        embed.add_field(name='__Core Info:__',
-                        value=f'**{Converter.FROM_SEASON_TO_STRING[match.season]}**\n'
-                              f'**{Converter.FROM_QUEUE_TO_STRING[match.queue]}**\n'
-                              f'**Duration:** {match.duration}\n',
-                        inline=False)
-        # Add Team Info
-        for t in [match.blue_team, match.red_team]:
-            result = 'VICTORY' if t.win else 'DEFEAT'
-            string = f'**{result}**\n'
-            if queue.has_towers:
-                string += f'**Towers:** {t.tower_kills}'
-                if t.first_tower:
-                    string += '  Got **First Tower.**'
-                string += '\n'
-                string += f'**Inhibitors:** {t.inhibitor_kills}'
-                if t.first_inhibitor:
-                    string += '  Got **First Inhibitor.**'
-                string += '\n'
-            if queue.has_dragons:
-                string += f'**Dragons:** {t.dragon_kills}'
-                if t.first_dragon:
-                    string += '  Got **First Dragon.**'
-                string += '\n'
-            if queue.has_barons:
-                string += f'**Barons:** {t.baron_kills}'
-                if t.first_baron:
-                    string += '  Got **First Baron.**'
-                string += '\n'
-            if queue.has_heralds:
-                string += f'**Herald:** {t.rift_herald_kills}'
-                if t.first_rift_herald:
-                    string += '  Got **First Herald.**'
-                string += '\n'
-            if queue.has_vilemaws:
-                string += f'**Vile\'Maws:** {t.vilemaw_kills}\n'
-            if t.first_blood:
-                string += 'Got **First Blood.**\n'
-            # Bans are bugged
-            # if t.bans:
-            #     string += '**BANS:**\n'
-            #     for i, b in enumerate(t.bans):
-            #         champion = cassiopeia.get_champion(b.key, 'NA')
-            #         champion = champion.name if champion is not None else 'None'
-            #         string += f'{i + 1}. {champion}\n'
 
-            embed.add_field(name=f'__TEAM {t.side.value // 100}__',
-                            value=string,
-                            inline=True)
-        embeds.append(embed)
-        for t in [match.blue_team, match.red_team]:
-            for p in t.participants:
-                embed = utils.create_embed_template(
-                    description=f'Overview of __**Team {t.side.value // 100}**__\'s __**{p.summoner.name}**__.',
-                    color=Constant.EMBED_COLOR, requester=ctx.author, author=f'OP.GG: {p.summoner.name}',
-                    author_url = self.get_op_gg_url(p.summoner.region.value, p.summoner.name),
-                    icon_url = Constant.OP_GG_ICON_URL
-                )
-                stats = p.stats
-                # Add Overview & Items
-                champion = cassiopeia.get_champion(p.champion.key, 'NA').name
-                role = Converter.FROM_ROLE_TO_STRING[p.role] if p.role is not None else ' '
-                string = f'**Champion:** {champion}'
-                if queue.has_lanes:
-                    string += f' {Converter.FROM_LANE_TO_STRING[p.lane]} {role}'
-                string += '\n'
-                string += f'**Previously:** {p.rank_last_season.value}\n'
-                string += f'**Summoner Spells:** {p.summoner_spell_d.name} {p.summoner_spell_f.name}\n'
-                string += '**Final Items:**\n'
-                for i, j in enumerate(stats.items):
-                    item = cassiopeia.get_items('NA')[j.id].name if j is not None else 'None'
-                    string += f'{i + 1}. {item}\n'
-                embed.add_field(name='__OVERVIEW:__', value=string)
-                # Add Core Stats: KDA, CS, Monsters, VS, CC, Gold, Score
-                string = f'**KDA:** {stats.kills} / {stats.deaths} / {stats.assists}  '
-                string += f'**Level:** {stats.level}\n'
-                if queue.has_score:
-                    string += f'**Score:** {stats.total_player_score}\n'
-                    string += f'\t**Combat:** {stats.combat_player_score}\n'
-                    string += f'\t**Objective:** {stats.objective_player_score}\n'
-                cs = stats.total_minions_killed + (stats.neutral_minions_killed if queue.has_monsters else 0)
-                string += f'**CS:** {cs}'
-                if queue.has_monsters:
-                    string += f'  **Monsters:** {stats.neutral_minions_killed}\n'
-                    string += f'\t**In Team Jungle:** {stats.neutral_minions_killed_team_jungle}\n'
-                    string += f'\t**In Enemy Jungle:** {stats.neutral_minions_killed_enemy_jungle}\n'
-                else:
-                    string += '\n'
-                if queue.has_vision:
-                    string += f'**Vision Score:** {stats.vision_score}\n'
-                    string += f'\t**Control Wards Bought:** {stats.vision_wards_bought_in_game}\n'
-                    string += f'\t**Wards Placed:** {stats.wards_placed}\n'
-                    string += f'\t**Wards Killed:** {stats.wards_killed}\n'
-                string += f'**Crowd Control:** {stats.total_time_crowd_control_dealt}\n'
-                string += f'**Gold Spent / Earned:** {stats.gold_spent} / {stats.gold_earned}\n'
-                embed.add_field(name='__BASIC:__', value=string)
-                # Add Advanced Stats:
-                if not use_bare:
-                    string = f'**Killing Sprees:** {stats.killing_sprees}  **Largest:** {stats.largest_killing_spree}\n'
-                    string += f'**Largest Multi Kill:** {stats.largest_multi_kill}\n'
-                    string += f'\t**Double Kills:** {stats.double_kills}\n'
-                    string += f'\t**Triple Kills:** {stats.triple_kills}\n'
-                    string += f'\t**Quadra Kills:** {stats.quadra_kills}\n'
-                    string += f'\t**Penta Kills:** {stats.penta_kills}\n'
-                    string += f'\t**Unreal Kills:** {stats.unreal_kills}\n'
-                    if stats.first_blood_kill or stats.first_blood_assist:
-                        string += '\tGot **First Blood**.\n'
-                    string += f'**Total Damage Dealt:** {stats.total_damage_dealt}\n'
-                    string += f'\t**Magical:** {stats.magic_damage_dealt}\n'
-                    string += f'\t**Physical:** {stats.physical_damage_dealt}\n'
-                    string += f'\t**True:** {stats.true_damage_dealt}\n'
-                    string += f'**Total To Champions:** {stats.total_damage_dealt_to_champions}\n'
-                    string += f'\t**Magical:** {stats.magic_damage_dealt_to_champions}\n'
-                    string += f'\t**Physical:** {stats.physical_damage_dealt_to_champions}\n'
-                    string += f'\t**True:** {stats.true_damage_dealt_to_champions}\n'
-                    string += f'**Total Damage Taken:** {stats.total_damage_taken}\n'
-                    string += f'\t**Magical:** {stats.magical_damage_taken}\n'
-                    string += f'\t**Physical:** {stats.physical_damage_taken}\n'
-                    string += f'\t**True:** {stats.true_damage_taken}\n'
-                    string += f'**Damage Self Mitigated:** {stats.damage_self_mitigated}\n'
-                    string += f'**Total Healing:** {stats.total_heal}\n'
-                    string += f'**Largest Critical Strike:** {stats.largest_critical_strike}\n'
-                    string += f'**Damage to Objectives:** {stats.damage_dealt_to_objectives}\n'
-                    if queue.has_towers:
-                        string += f'\t**Damage to Towers:** {stats.damage_dealt_to_turrets}\n'
-                        string += f'\t**Tower Kills:** {stats.turret_kills}'
-                        if stats.first_tower_kill or stats.first_tower_assist:
-                            string += '  Got **First Tower**.'
-                        string += '\n'
-                        string += f'\t**Inhibitor Kills:** {stats.inhibitor_kills}'
-                        if stats.first_inhibitor_kill or stats.first_inhibitor_assist:
-                            string += '  Got **First Inhibitor**.'
-                        string += '\n'
-                    embed.add_field(name='__ADVANCED:__', value=string)
-                # Add Runes
-                runes = list(p.runes)
-                string = f'**Primary:** {runes[0].path.value}\n'
-                for r in runes[:4]:
-                    if r.is_keystone:
-                        rune = f'**{r.name}**'
-                    else:
-                        rune = f'{r.name}'
-                    string += f'\t{rune}\n'
-                string += f'**Secondary:** {runes[4].path.value}\n'
-                for r in runes[4:]:
-                    string += f'\t{r.name}\n'
-                embed.add_field(name='__RUNES:__', value=string)
-                embeds.append(embed)
-        return embeds
 
-    def create_matches(self, ctx: commands.Context, summoner: cassiopeia.Summoner, matches: cassiopeia.MatchHistory)\
-            -> List[discord.Embed]:
-        embed = utils.create_embed_template(
-            description=f'{len(matches)} most recent matches of '
-                        f'__**{summoner.name}**__ in __**{summoner.region.value}**__.',
-            color=Constant.EMBED_COLOR, requester=ctx.author, thumbnail=summoner.profile_icon.url,
-            author=f'OP.GG: {summoner.name}', author_url=self.get_op_gg_url(summoner.region.value, summoner.name),
-            icon_url=Constant.OP_GG_ICON_URL
-        )
-        # Add Basic Info
-        for i, m in enumerate(matches):
-            player = m.participants[summoner]
-            result = 'VICTORY' if player.team.win else 'DEFEAT'
-            role = Converter.FROM_ROLE_TO_STRING[player.role] if player.role is not None else ' '
-            champion = cassiopeia.get_champion(player.champion.key, 'NA').name
-            queue = Constant.QUEUE_INFO[m.queue]
-            lane = f'{Converter.FROM_LANE_TO_STRING[player.lane]} {role}' if queue.has_lanes else ''
-            cs = player.stats.total_minions_killed + (player.stats.neutral_minions_killed if queue.has_monsters else 0)
-            vs = f'**VS:** {player.stats.vision_score}' if queue.has_vision else ''
-            embed.add_field(name=f'{i + 1}. __**{m.id}:**__',
-                            value=f'\t**{result}**\n\t**{Converter.FROM_SEASON_TO_STRING[m.season]}**\n'
-                                  f'\t**{Converter.FROM_QUEUE_TO_STRING[m.queue]}**\n'
-                                  f'\t**Duration:** {m.duration}\n\t**Champion:** {champion} {lane}\n\t'
-                                  f'**KDA:** {player.stats.kills} / {player.stats.deaths} / {player.stats.assists}\n'
-                                  f'\t**CS:** {cs}  {vs}',
-                            inline=False)
-        return [embed]
 
-    def create_player(self, ctx: commands.Context, summoner: cassiopeia.Summoner, matches: cassiopeia.MatchHistory,
-                      masteries: cassiopeia.ChampionMasteries, leagues: cassiopeia.LeagueEntries) \
-            -> List[discord.Embed]:
-        embed = utils.create_embed_template(
-            description=f'Overview of __**{summoner.name}**__ in __**{summoner.region.value}**__.',
-            color=Constant.EMBED_COLOR, requester=ctx.author, thumbnail=summoner.profile_icon.url,
-            author=f'OP.GG: {summoner.name}', author_url=self.get_op_gg_url(summoner.region.value, summoner.name),
-            icon_url=Constant.OP_GG_ICON_URL
-        )
-        # Add Basic Info
-        embed.add_field(name='__Core:__', value=f'**Level:** {summoner.level}', inline=False)
-        # Add Recent Game Info
-        games, wins, kills, deaths, assists, vision, cs = len(matches), 0, 0, 0, 0, 0, 0
-        for m in matches:
-            player = m.participants[summoner]
-            if player.team.win:
-                wins += 1
-            kills += player.stats.kills
-            deaths += player.stats.deaths
-            assists += player.stats.assists
-            vision += player.stats.vision_score
-            cs += player.stats.total_minions_killed + player.stats.neutral_minions_killed
-        losses = games - wins
-        if games > 0:
-            kills /= games
-            deaths /= games
-            assists /= games
-            vision /= games
-            cs /= games
-        win_rate = wins / games * 100 if games > 0 else 0
-        embed.add_field(name=f'__Recent {games} Games:__',
-                        value=f'**W/L:** {wins}W / {losses}L\n**Win Rate:** {win_rate:.2f}%\n'
-                              f'**KDA:** {kills:.2f} / {deaths:.2f} / {assists: .2f}  '
-                              f'**R:** {(kills + assists) / (deaths + 1):.2f}\n'
-                              f'**CS:** {cs:.2f}  **VS:** {vision:.2f}')
-        # Add Mastery Info
-        mastery_string = ''
-        top_5 = list(masteries)[:5]
-        if len(top_5) < 1:
-            mastery_string += 'No champions mastered.'
-        for i, m in enumerate(top_5):
-            champion = cassiopeia.get_champion(m.champion.key, region='NA')
-            mastery_string += f'{i + 1}. **{champion.name}** (**{m.level}**) {m.points} pts.\n'
-        embed.add_field(name=f'__Top {len(top_5)} Champions:__', value=mastery_string)
-        # Add Ranked Info
-        win_rate = wins / games * 100 if games > 0 else 0
-        for l in leagues:
-            ranked_string = f'**Name:** {l.name}\n**Rank:** {l.tier.value} {l.division.value}\n' \
-                            f'**W/L:** {l.wins}W / {l.losses}L' \
-                            f'  **Win Rate:** {win_rate:.2f}%\n**LP:** {l.league_points}\n'
-            if l.fresh_blood:
-                ranked_string += 'Fresh Blood. '
-            if l.hot_streak:
-                ranked_string += 'Hot Streak. '
-            if l.veteran:
-                ranked_string += 'Veteran. '
-            embed.add_field(name=f'__{utils.get_sanitized_value(l.queue.value)}:__',
-                            value=ranked_string)
-        return [embed]
+
+
 
     def create_spectate(self, ctx: commands.Context, match: cassiopeia.CurrentMatch, name: str) \
             -> List[discord.Embed]:
         embeds = []
         embed = utils.create_embed_template(
-            description=f'**{Converter.FROM_QUEUE_TO_STRING[match.queue]}** | {match.duration}',
+            description=f'**{Constant.FROM_QUEUE_TO_STRING[match.queue]}** | {match.duration}',
             color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Live Match for {name}',
             author_url=self.get_live_match_url(match.region.value, name)
         )
@@ -800,120 +1048,6 @@ class LoL(object):
         embeds.append(embed)
         return embeds
 
-    def create_timeline(self, ctx: commands.Context, match: cassiopeia.Match) \
-            -> List[discord.Embed]:
-        embeds = []
-        embed = utils.create_embed_template(
-            description=f'Timeline of Match __**{match.id}**__ in __**{match.region.value}**__.',
-            color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
-            author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
-        )
-        participants = match.blue_team.participants + match.red_team.participants
-        events = []
-        for f in match.timeline.frames:
-            for e in f.events:
-                if e.type in ['CHAMPION_KILL', 'BUILDING_KILL', 'ELITE_MONSTER_KILL']:
-                    events.append(e)
-        for i, e in enumerate(events):
-            string = ''
-            if e.type == 'CHAMPION_KILL':
-                killer = participants[e.killer_id - 1]
-                team = killer.side.value // 100
-                champion = cassiopeia.get_champion(killer.champion.key, 'NA')
-                killer = f'{champion.name} ({killer.summoner.name})'
-                victim = participants[e.victim_id - 1]
-                champion = cassiopeia.get_champion(victim.champion.key, 'NA')
-                victim = f'{champion.name} ({victim.summoner.name})'
-                event = f'**Team {team}** has slain **{victim}**\n'
-                event += f'\tBy **{killer}**\n'
-                if e.assisting_participants:
-                    event += '\tAssisted By:\n'
-                for a in e.assisting_participants:
-                    assist = participants[a - 1]
-                    champion = cassiopeia.get_champion(assist.champion.key, 'NA')
-                    assist = f'{champion.name} ({assist.summoner.name})'
-                    event += f'\t\t**{assist}**\n'
-                string += f'{event}'
-            elif e.type == 'BUILDING_KILL':
-                killer = participants[e.killer_id - 1]
-                team = killer.side.value // 100
-                champion = cassiopeia.get_champion(killer.champion.key, 'NA')
-                killer = f'{champion.name} ({killer.summoner.name})'
-                # Until timeline's event.lane_type is fixed
-                # if e.lane_type == 'MID_LANE':
-                #     lane = 'Middle'
-                # elif e.lane_type == 'BOT_LANE':
-                #     lane = 'Bottom'
-                # elif e.lane_type == 'TOP_LANE':
-                #     lane = 'Top'
-                # else:
-                #     lane = None
-                if e.tower_type == 'NEXUS_TURRET':
-                    victim = 'Nexus Tower'
-                elif e.building_type == 'INHIBITOR_BUILDING':
-                    victim = 'Inhibitor'
-                elif e.tower_type == 'INNER_TURRET':
-                    victim = 'Inner Tower'
-                elif e.tower_type == 'OUTER_TURRET':
-                    victim = 'Outer Tower'
-                elif e.tower_type == 'BASE_TURRET':
-                    victim = 'Base Tower'
-                event = f'**Team {team}** has destroyed the **{victim}**\n'
-                event += f'\tBy **{killer}**\n'
-                if e.assisting_participants:
-                    event += '\tAssisted By:\n'
-                for a in e.assisting_participants:
-                    assist = participants[a - 1]
-                    champion = cassiopeia.get_champion(assist.champion.key, 'NA')
-                    assist = f'{champion.name} ({assist.summoner.name})'
-                    event += f'\t\t**{assist}**\n'
-                string += f'{event}'
-            elif e.type == 'ELITE_MONSTER_KILL':
-                killer = participants[e.killer_id - 1]
-                team = killer.side.value // 100
-                champion = cassiopeia.get_champion(killer.champion.key, 'NA')
-                killer = f'{champion.name} ({killer.summoner.name})'
-                if e.monster_type == 'BARON_NASHOR':
-                    victim = 'Baron'
-                elif e.monster_type == 'RIFTHERALD':
-                    victim = 'Rift Herald'
-                elif e.monster_type == 'VILE_MAW':
-                    victim = 'Vile\'Maw'
-                elif e.monster_type == 'DRAGON':
-                    victim = 'Dragon'
-                    # Monster Sub Type is bugged
-                    # if e.monster_sub_type == 'WATER_DRAGON':
-                    #     victim = 'Ocean Dragon'
-                    # elif e.monster_sub_type == 'AIR_DRAGON':
-                    #     victim = 'Cloud Dragon'
-                    # elif e.monster_sub_type == 'EARTH_DRAGON':
-                    #     victim = 'Mountain Dragon'
-                    # elif e.monster_sub_type == 'FIRE_DRAGON':
-                    #     victim = 'Infernal Dragon'
-                    # elif e.monster_sub_type == 'ELDER_DRAGON':
-                    #     victim = 'Elder Dragon'
-                event = f'**Team {team}** has slain the **{victim}**\n'
-                event += f'\tBy **{killer}**\n'
-                string += f'{event}'
-            if string != '':
-                timestamp = self.get_time_stamp(e.timestamp)
-                timestamp = f'{timestamp[0]}:{timestamp[1]:02d}'
-                embed.add_field(name=f'@**{timestamp}:**\n', value=string, inline=False)
-            # TODO: Add events for Ascension, Poro King
-            if i % Constant.SPLIT_FOR_TIMELINE >= Constant.SPLIT_FOR_TIMELINE - 1:
-                embeds.append(embed)
-                embed = utils.create_embed_template(
-                    description=f'Timeline of Match __**{match.id}**__ in __**{match.region.value}**__.',
-                    color=Constant.EMBED_COLOR, requester=ctx.author, author=f'Match History: {match.id}',
-                    author_url=self.get_match_history_url(match.region.value, match.platform.value, match.id)
-                )
-            if len(events) - i == 1:
-                embeds.append(embed)
-        return embeds
-    # endregion
-
-    # region HELPERS
-    # region BUILDERS
 
     # endregion
 
@@ -928,28 +1062,88 @@ class LoL(object):
                 await ctx.send(embed=e)
 
     # endregion
+
     # region GETTERS
     @staticmethod
     def get_error_message(error_type: Error, *args) \
             -> str:
-        if error_type == Error.REGION_NOT_FOUND:
+        if error_type == Error.NF_REGION:
             return f'**{args[0]}** not found.'
-        elif error_type == Error.PLAYER_NOT_FOUND:
+        elif error_type == Error.NF_PLAYER:
             return f'**{args[0]}** not found in **{args[1]}**.'
-        elif error_type == Error.MATCHES_NOT_FOUND:
+        elif error_type == Error.NF_MATCHES:
             return f'Matches not found for **{args[0]}** in **{args[1]}**.'
-        elif error_type == Error.MASTERIES_NOT_FOUND:
+        elif error_type == Error.NF_MASTERIES:
             return f'Masteries not found for **{args[0]}** in **{args[1]}**.'
-        elif error_type == Error.RANKS_NOT_FOUND:
+        elif error_type == Error.NF_LEAGUES:
             return f'Ranks not found for **{args[0]}** in **{args[1]}**.'
-        elif error_type == Error.INVALID_AMOUNT:
+        elif error_type == Error.INV_AMOUNT:
             return f'Amount must be an integer between **{args[0]}** and **{args[1]}**.'
-        elif error_type == Error.MATCHES_NOT_FOUND:
+        elif error_type == Error.NF_MATCH:
             return f'Match **{args[0]}** not found in **{args[1]}**.'
-        elif error_type == Error.NOT_IN_GAME:
+        elif error_type == Error.NF_LIVE:
             return f'**{args[0]}** in **{args[1]}** not in game.'
         else:
             return ''
+        
+    @staticmethod
+    def get_champion_name_in_english(key: int) \
+            -> str:
+        return cassiopeia.get_champion(key, 'NA').name
+
+    @staticmethod
+    def get_item_name(id: int) \
+        -> str:
+        return cassiopeia.get_items('NA')[id].name
+
+    @staticmethod
+    def get_role_name(queue: cassiopeia.Queue, role: data.Role) \
+            -> str:
+        # if Constant.QUEUE_INFO[queue].has_lanes:
+        #     if role is None:
+        #         return 'Jungle'
+        #     elif role is data.Role.
+        return Constant.FROM_ROLE_TO_STRING[role] if role is not None and Constant.QUEUE_INFO[queue].has_lanes else ' '
+
+    @staticmethod
+    def get_role_string(lane: data.Lane, role: data.Role):
+        role = Constant.FROM_ROLE_TO_STRING[role] if role is not None else ' '
+        if role == 'Solo' or role == 'Duo' or role == ' ':
+            return f'{Constant.FROM_LANE_TO_STRING[lane]}'
+        else:
+            return f'{role}'
+
+    @staticmethod
+    def get_result_string(win: bool) \
+            -> str:
+        return 'VICTORY' if win else 'DEFEAT'
+
+    @staticmethod
+    def get_vs_string(queue: cassiopeia.Queue, stats: core.match.ParticipantStats) \
+            -> str:
+        return f'**VS:** {stats.vision_score}' if Constant.QUEUE_INFO[queue].has_vision else ''
+
+    def get_time_stamp_string(self, time):
+        timestamp = self.get_time_stamp(time)
+        return f'{timestamp[0]}:{timestamp[1]:02d}'
+
+    @staticmethod
+    def get_total_cs(queue: Union[cassiopeia.Queue, QueueInfo], cs: int, monsters: Union[int, None]) \
+            -> int:
+        if isinstance(queue, cassiopeia.Queue):
+            return cs + (monsters if Constant.QUEUE_INFO[queue].has_monsters else 0)
+        else:
+            return cs + (monsters if queue.has_monsters else 0)
+
+    @staticmethod
+    def get_kda(kills: int, deaths: int, assists: int) \
+            -> float:
+        return (kills + assists) / (deaths + 1)
+
+    @staticmethod
+    def get_win_rate(wins: int, losses: int) \
+            -> float:
+        return (wins / (wins + losses) * 100) if wins + losses > 0 else 0
 
     @staticmethod
     def get_live_match_url(region: str, name: str) \
@@ -977,12 +1171,12 @@ class LoL(object):
 
     @staticmethod
     def get_time_stamp(time) \
-            -> [int, int]:
+            -> Tuple[int, int]:
         time = time / 1000 / 60
         return int(time), int(time % 1 * 60)
 
     @staticmethod
-    def get_within_bounds(value: int, min_value: int, max_value: int, default: int) \
+    def get_within_bounds(value: Union[int, None], min_value: int, max_value: int, default: int) \
             -> Union[int, None]:
         if value is None:
             return default
@@ -992,7 +1186,7 @@ class LoL(object):
             return None
         return value
 
-    def get_amount(self, amount: int) \
+    def get_amount(self, amount: Union[int, None]) \
             -> Union[int, None]:
         try:
             return self.get_within_bounds(amount, 1, 20, 20)
@@ -1000,11 +1194,27 @@ class LoL(object):
             return None
 
     @staticmethod
-    def get_region(region: str) \
+    def get_region(region: Union[str, None]) \
             -> str:
         if region is None:
             return 'NA'
         return region if region.upper() in Constant.REGIONS_LIST else None
+    # endregion
+
+    # region RETRIEVAL
+    def retrieve_amount(self, amount: Union[int, None], min: int, max: int) \
+            -> int:
+        amount = self.get_amount(amount)
+        if amount is None:
+            raise commands.BadArgument(self.get_error_message(Error.INV_AMOUNT, min, max))
+        return amount
+
+    def retrieve_region(self, region: Union[str, None]) \
+            -> str:
+        region_temp = self.get_region(region)
+        if region_temp is None:
+            raise commands.UserInputError(self.get_error_message(Error.NF_REGION, region))
+        return region_temp
     # endregion
 
     # region PARSERS
@@ -1017,7 +1227,7 @@ class LoL(object):
         except ValueError:
             return None
 
-    def parse_single_arg(self, args: list, arg: str, has_value: bool=False) \
+    def parse_single_arg(self, args: list, arg: List[str], has_value: bool=False) \
             -> Union[Tuple[bool, Union[str, None]], None]:
         if args is None:
             return False, None
@@ -1028,13 +1238,30 @@ class LoL(object):
                 split = re.split(self.val_prefix, a)
             except ValueError:
                 return None
-            if split[0] == arg:
+            if split[0] in arg:
                 found = True
                 if has_value and len(split) > 1:
                     value = split[1]
                 break
         return found, value
     # endregion
+
+    # region ERROR
+    @staticmethod
+    async def on_command_error(ctx: commands.Context, error: commands.CommandError) \
+            -> None:
+        if isinstance(error, commands.MissingRequiredArgument):
+            splits = re.split(' ', error.__str__())
+            string = f'**{splits[0]}**'
+            await ctx.send(' '.join([string] + splits[1:]))
+        elif isinstance(error, commands.BadArgument):
+            await ctx.send(error)
+        elif isinstance(error, commands.UserInputError):
+            await ctx.send(error)
+        # elif isinstance(error, commands.CommandInvokeError):
+        #     await ctx.send('403: Forbidden.')
+        else:
+            raise error
     # endregion
 
     async def react_to(self, msg: discord.Message, emojis: list) \

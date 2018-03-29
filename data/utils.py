@@ -35,9 +35,10 @@ def get_sanitized_value(value: str) -> str:
 def print_command(command: str, inputs: list=None, args: str=None) -> None:
     string = 'Invoked: {}.\n'.format(command)
     if inputs:
+        string += 'Inputs: '
         for i in inputs:
             inp = i if i is not None else 'None'
-            string += f'Inputs: {inp} '
+            string += f'{inp} '
         string += '.\n'
     if args:
         string += f'Args: {args}.\n'
