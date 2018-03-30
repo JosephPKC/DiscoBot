@@ -1,5 +1,6 @@
 import discord
 import re
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 
 # region Utility Methods
@@ -43,4 +44,18 @@ def print_command(command: str, inputs: list=None, args: str=None) -> None:
     if args:
         string += f'Args: {args}.\n'
     print(string)
+
+
+def add_to_embed(current_embed: discord.Embed, split: int, embeds_list: List[discord.Embed], item_list: List[Any],
+                 field_name_gen: Callable[[int, Any], str], field_value_gen: Callable[[int, Any], str],
+                 field_inline_gen: Callable[[int, Any], bool], embed_gen: Callable[[], discord.Embed]) \
+        -> List[discord.Embed]:
+    for i, o in enumerate(item_list):
+        current_embed.add_field(name=field_name_gen(i, o), value=field_value_gen(i, o), inline=field_inline_gen(i, o))
+        if i % split >= split - 1:
+            embeds_list.append(current_embed)
+            current_embed = embed_gen()
+        elif len(item_list) - i == 1:
+            embeds_list.append(current_embed)
+    return embeds_list
 # endregion
