@@ -1,13 +1,13 @@
 import re
 from enum import Enum
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 import cassiopeia
 import datapipelines
 import discord
 from cassiopeia import *
 from discord.ext import commands
 
-from data import utils
+from _Old.data import utils
 
 """ LoL Cog
 - A self-contained cog that contains commands, data, enumerations, etc relating to LoL.
@@ -1242,9 +1242,9 @@ class LoL(object):
         try:
             return re.split(' ?{}'.format(self.arg_prefix), args)
         except TypeError:
-            return None
+            raise commands.UserInputError
         except ValueError:
-            return None
+            raise commands.UserInputError
 
     def parse_single_arg(self, args: list, arg: List[str], has_value: bool=False) \
             -> Optional[Tuple[bool, Optional[str]]]:
@@ -1256,7 +1256,7 @@ class LoL(object):
             try:
                 split = re.split(self.val_prefix, a)
             except ValueError:
-                return None
+                raise commands.UserInputError
             if split[0] in arg:
                 found = True
                 if has_value and len(split) > 1:

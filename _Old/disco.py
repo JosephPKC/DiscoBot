@@ -1,4 +1,4 @@
-from cogs import lol
+from _Old.cogs import lol
 import os
 import sys
 try:
