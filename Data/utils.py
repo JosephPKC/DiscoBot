@@ -10,7 +10,8 @@ def clean_html(string: str) \
         return ''
     string = string.replace('<br><br>', '\n\n\t')
     string = string.replace('<br>', '\n\t')
-    string = re.sub('<[a-zA-Z#= /\'0-9]*>', '**', string)
+    string = re.sub('</?mana>', '', string)  # Hardcoded sub for certain items
+    string = re.sub('<[a-zA-Z#= /\'0-9]*>+', '**', string)
     return string
 
 

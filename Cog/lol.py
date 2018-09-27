@@ -1,12 +1,12 @@
 import re
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import cassiopeia
 import datapipelines
 import discord
 from cassiopeia import *
-from cassiopeia.core.staticdata.common import ImageData
+from cassiopeia.core.common import CassiopeiaLazyList, CassiopeiaGhost
 from cassiopeia.core.staticdata.champion import ChampionSpell, Stats
 
 from discord.ext import commands
@@ -20,6 +20,7 @@ class LoLError(Enum):
     PLAYER_NOT_FOUND = 2
     LEAGUE_NOT_FOUND = 3
     CHAMPION_NOT_FOUND = 4
+    ITEM_NOT_FOUND = 5
 
 
 class LoLConstants(object):
@@ -86,6 +87,12 @@ class LoLFactory(object):
     def create_lore(author: str, champion: cassiopeia.Champion) \
             -> List[discord.Embed]:
         return LoLFactory.build_champion_lore_embed(author, champion)
+
+    @staticmethod
+    def create_item(author: str, item: cassiopeia.Item, region: str) \
+            -> List[discord.Embed]:
+        print(item.to_dict())
+        return [LoLFactory.build_items_embed(author, item, region)]
 
     # region Builders
     @staticmethod
@@ -181,6 +188,30 @@ class LoLFactory(object):
                                                thumbnail=LoLUtils.get_spell_icon_url(s))
             embeds.append(LoLFactory.add_skills_embed(embed, [s]))
         return embeds
+
+    @staticmethod
+    def build_items_embed(author: str, item: cassiopeia.Item, region: str) \
+            -> discord.Embed:
+        description = f'__**{item.name}**__'
+        embed = LoLFactory.build_lol_embed(description=description, requester=author,
+                                           thumbnail=item.image.url)
+        gold = f'**Base:** {item.gold.base}\n' \
+               f'**Total:** {item.gold.total}\n' \
+               f'**Sell:** {item.gold.sell}\n'
+        if not item.gold.purchasable:
+            gold += '**Not Purchasable**'
+        embed.add_field(name='**Cost**', value=gold, inline=False)
+        embed.add_field(name=f'**{item.plaintext}**', value=f'{utils.clean_html(item.description)}', inline=False)
+        builds_from = LoLWorkArounds.get_item_build_from(item, region)
+        if len(builds_from) > 0:
+            items_from = ', '.join([i.name for i in builds_from])
+            embed.add_field(name='**Builds From**', value=f'{items_from}', inline=False)
+        if len(item.builds_into) > 0:
+            items_into = ', '.join([i.name for i in item.builds_into])
+            embed.add_field(name='**Builds Into**', value=f'{items_into}', inline=False)
+        maps = ', '.join([m.name for m in item.maps])
+        embed.add_field(name='**Available in**', value=f'{maps}', inline=False)
+        return embed
     # endregion
 
     # region Helpers
@@ -276,6 +307,14 @@ class LoLWorkArounds(object):
             return skills.max_rank
         except AttributeError:
             return skills.to_dict()['maxRank']
+
+    @staticmethod
+    def get_item_build_from(item: cassiopeia.Item, region: str) \
+            -> List[Item]:
+        try:
+            return item.builds_from
+        except AttributeError:
+            return LoLCog.load_items_from_codes(region, item.to_json()['buildsFrom'])
 
 
 # Workflow of a typical LoL Command:
@@ -384,6 +423,18 @@ class LoLCog(object):
 
         for s in champion.skins:
             await ctx.send(f'**{s.name}: ** {s.splash_url}')
+
+    @lol.command(help='Displays the information of the item.')
+    async def item(self, ctx: commands.Context, name: str, *, args: Optional[str]=None) \
+            -> None:
+        utils.print_command(ctx.command, [name], args)
+        name = utils.clean_string(name)
+        args = self._parse_args(args)
+        _, region = self._parse_single_arg(args, ['r', 'region'], True)
+        region = LoLUtils.get_region(region)
+        item = self._retrieve_item(name, region)
+        await utils.display_embed(ctx, ctx.author.mention,
+                                  LoLFactory.create_item(ctx.author, item, region))
     # endregion
 
     # region Retrieval
@@ -411,17 +462,43 @@ class LoLCog(object):
     @staticmethod
     def _retrieve_na_champion(name: str, region: str, champions: cassiopeia.Champions) \
             -> cassiopeia.Champion:
-        if region == 'NA':
-            raise commands.UserInputError(LoLUtils.get_error_message(LoLError.CHAMPION_NOT_FOUND, name))
-        na_champions = LoLCog._retrieve_all_champions('NA', False, None)
-        na_champions = na_champions.filter(lambda c: utils.clean_string(c.name) == name)
-        if len(na_champions) != 1:
-            raise commands.UserInputError(LoLUtils.get_error_message(LoLError.CHAMPION_NOT_FOUND, name))
-        champion = na_champions[0]
-        champions = champions.filter(lambda c: c.key == champion.key)
-        if len(champions) != 1:
-            raise commands.UserInputError(LoLUtils.get_error_message(LoLError.CHAMPION_NOT_FOUND, name))
-        return champions[0]
+        return LoLCog._retrieve_na_thing(name, region, champions, LoLCog._retrieve_all_champions,
+                                         LoLError.CHAMPION_NOT_FOUND)
+
+    @staticmethod
+    def _retrieve_all_items(region: str) \
+            -> cassiopeia.Items:
+        items = cassiopeia.get_items(region)
+        return items
+
+    @staticmethod
+    def _retrieve_item(name: str, region: str) \
+            -> cassiopeia.Item:
+        items = LoLCog._retrieve_all_items(region)
+        filtered_items = items.filter(lambda i: utils.clean_string(i.name) == name)
+        if len(filtered_items) != 1:
+            return LoLCog._retrieve_na_item(name, region, items)
+        return filtered_items[0]
+
+    @staticmethod
+    def _retrieve_na_item(name:  str, region: str, items: cassiopeia.Items) \
+            -> cassiopeia.Item:
+        return LoLCog._retrieve_na_thing(name, region, items, LoLCog._retrieve_all_items, LoLError.ITEM_NOT_FOUND)
+
+    @staticmethod
+    def _retrieve_na_thing(name: str, region: str, item_list: CassiopeiaLazyList,
+                           retrieval: Callable[[str], CassiopeiaLazyList], error: LoLError) \
+            -> CassiopeiaGhost:
+        if region != 'NA':
+            na_things = retrieval('NA')
+            na_things = na_things.filter(lambda x: utils.clean_string(x.name) == name)
+            if len(na_things) == 1:
+                thing = na_things[0]
+                na_things = item_list.filter(lambda x: x.key == thing.key)
+                if len(na_things) == 1:
+                    return na_things[0]
+        raise commands.UserInputError(LoLUtils.get_error_message(error, name))
+
     # endregion
 
     # @staticmethod
@@ -436,3 +513,16 @@ class LoLCog(object):
     def _parse_single_arg(self, args: List[str], valid_args: List[str], has_value: bool=False) \
             -> Tuple[bool, Optional[str]]:
         return utils.parse_single_argument(args, valid_args, self._arg_prefix, self._val_prefix, has_value)
+
+    @classmethod
+    def load_items_from_codes(cls, region: str, items: List[int]) \
+            -> List[Item]:
+        all_items = cls._retrieve_all_items(region)
+        new_items = list()
+        for i in items:
+            item = all_items.filter(lambda x: x.id == i)
+            if len(item) != 1:
+                print(f'Item with id {i} not found.')
+                continue
+            new_items.append(item[0])
+        return new_items
